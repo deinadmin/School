@@ -160,4 +160,39 @@ class DataManager {
         let allSubjects = getAllSubjects(from: context)
         return allSubjects.filter { subjectNames.contains($0.name) }
     }
+    
+    // MARK: - Grade Type Operations
+    
+    /// Get unique grade types used by a subject in specific school year/semester
+    static func getGradeTypes(for subject: Subject, schoolYear: SchoolYear, semester: Semester, from context: ModelContext) -> [GradeType] {
+        let grades = getGrades(for: subject, schoolYear: schoolYear, semester: semester, from: context)
+        let uniqueTypes = Dictionary(grouping: grades, by: { $0.type.id })
+            .compactMapValues { $0.first?.type }
+            .values
+        
+        print("Debug: Found \(uniqueTypes.count) unique grade types for '\(subject.name)' in \(schoolYear.displayName) \(semester.displayName)")
+        return Array(uniqueTypes).sorted { $0.name < $1.name }
+    }
+    
+    /// Get grades for a specific grade type within a subject/period
+    static func getGrades(for subject: Subject, gradeType: GradeType, schoolYear: SchoolYear, semester: Semester, from context: ModelContext) -> [Grade] {
+        let allGrades = getGrades(for: subject, schoolYear: schoolYear, semester: semester, from: context)
+        return allGrades.filter { $0.type.id == gradeType.id }
+    }
+    
+    /// Delete all grades of a specific type for a subject in specific period
+    static func deleteGradesOfType(_ gradeType: GradeType, for subject: Subject, schoolYear: SchoolYear, semester: Semester, from context: ModelContext) {
+        let gradesToDelete = getGrades(for: subject, gradeType: gradeType, schoolYear: schoolYear, semester: semester, from: context)
+        
+        for grade in gradesToDelete {
+            context.delete(grade)
+        }
+        
+        do {
+            try context.save()
+            print("Debug: Deleted \(gradesToDelete.count) grades of type '\(gradeType.name)' for subject '\(subject.name)'")
+        } catch {
+            print("Debug: Error deleting grades of type: \(error)")
+        }
+    }
 } 

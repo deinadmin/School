@@ -16,10 +16,22 @@ struct SubjectDetailView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var showingAddGrade = false
+    @State private var showingAddGradeType = false
+    @State private var gradeTypeToEdit: GradeType?
+    @State private var showingDeleteGradeTypeAlert = false
+    @State private var gradeTypeToDelete: GradeType?
+    @State private var selectedGradeTypeForNewGrade: GradeType?
+    @State private var gradeTypesUpdateTrigger = UUID() // Debug: Trigger view refresh when grade types change
     
     // Debug: Get grades for this subject in the selected period
     private var grades: [Grade] {
         DataManager.getGrades(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+    }
+    
+    // Debug: Get all available grade types (show all, not just used) - reactive to changes
+    private var allAvailableGradeTypes: [GradeType] {
+        _ = gradeTypesUpdateTrigger // Debug: Force dependency on update trigger
+        return GradeTypeManager.getAllGradeTypes()
     }
     
     // Debug: Calculate average for selected period
@@ -38,24 +50,89 @@ struct SubjectDetailView: View {
                     // Debug: Statistics section
                     statisticsView
                     
-                    // Debug: Grades list
-                    gradesListView
+                    // Debug: Grades section with all grade types
+                    gradesSection
                 }
                 .padding(.horizontal)
             }
             .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true) // Debug: Hide default back button to use custom colored one
+            .accentColor(Color(hex: subject.colorHex)) // Debug: Use subject color as accent color for entire view and all sheets
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Note hinzufügen") {
-                        showingAddGrade = true
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: {
+                        dismiss()
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "chevron.left")
+                                .font(.title3)
+                                .fontWeight(.medium)
+                            Text("Fächer")
+                                .font(.body)
+                        }
+                        .foregroundColor(Color(hex: subject.colorHex))
                     }
-                    .buttonStyle(.borderedProminent)
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button(action: {
+                            selectedGradeTypeForNewGrade = nil
+                            showingAddGrade = true
+                        }) {
+                            Label("Note hinzufügen", systemImage: "plus")
+                        }
+                        
+                        Button(action: {
+                            showingAddGradeType = true
+                        }) {
+                            Label("Notentyp hinzufügen", systemImage: "plus.circle")
+                        }
+                    } label: {
+                        Image(systemName: "plus")
+                            .fontWeight(.semibold)
+                    }
                 }
             }
             .sheet(isPresented: $showingAddGrade) {
-                AddGradeView(subject: subject, schoolYear: selectedSchoolYear, semester: selectedSemester)
+                AddGradeView(
+                    subject: subject, 
+                    schoolYear: selectedSchoolYear, 
+                    semester: selectedSemester,
+                    preselectedGradeType: selectedGradeTypeForNewGrade
+                )
+            }
+            .sheet(isPresented: $showingAddGradeType) {
+                AddGradeTypeView { newGradeType in
+                    GradeTypeManager.addCustomGradeType(newGradeType)
+                    gradeTypesUpdateTrigger = UUID() // Debug: Trigger view refresh
+                }
+            }
+            .sheet(item: $gradeTypeToEdit) { gradeType in
+                EditGradeTypeView(gradeType: gradeType) { updatedGradeType in
+                    print("Debug: Saving updated grade type: \(updatedGradeType.name)")
+                    GradeTypeManager.updateGradeType(updatedGradeType)
+                    gradeTypeToEdit = nil
+                    gradeTypesUpdateTrigger = UUID() // Debug: Trigger view refresh
+                }
+            }
+            .alert("Notentyp löschen?", isPresented: $showingDeleteGradeTypeAlert) {
+                Button("Löschen", role: .destructive) {
+                    if let gradeTypeToDelete = gradeTypeToDelete {
+                        deleteGradeType(gradeTypeToDelete)
+                    }
+                }
+                Button("Abbrechen", role: .cancel) {
+                    gradeTypeToDelete = nil
+                }
+            } message: {
+                if let gradeTypeToDelete = gradeTypeToDelete {
+                    let gradeCount = DataManager.getGrades(for: subject, gradeType: gradeTypeToDelete, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext).count
+                    Text("Dies wird den Notentyp '\(gradeTypeToDelete.name)' und alle \(gradeCount) zugehörigen Noten unwiderruflich löschen.")
+                }
             }
         }
+        .tint(Color(hex: subject.colorHex)) // Debug: Apply subject color to navigation elements (back button, toolbar buttons)
     }
     
     // Debug: Subject header with icon, color, and period info
@@ -66,8 +143,8 @@ struct SubjectDetailView: View {
                 .foregroundColor(Color(hex: subject.colorHex))
                 .frame(width: 60, height: 60)
                 .background(Color(hex: subject.colorHex).opacity(0.1))
-                .clipShape(Circle())
-            
+                .cornerRadius(8)
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(subject.name)
                     .font(.title2)
@@ -85,7 +162,7 @@ struct SubjectDetailView: View {
             Spacer()
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(.ultraThinMaterial)
         .cornerRadius(12)
     }
     
@@ -101,7 +178,7 @@ struct SubjectDetailView: View {
                     title: "Anzahl Noten",
                     value: "\(grades.count)",
                     icon: "number.circle",
-                    color: .blue
+                    color: Color(hex: subject.colorHex)
                 )
                 
                 StatisticCard(
@@ -114,9 +191,9 @@ struct SubjectDetailView: View {
         }
     }
     
-    // Debug: List of all grades
-    private var gradesListView: some View {
-        VStack(alignment: .leading, spacing: 12) {
+    // Debug: Grades section showing all grade types as blocks
+    private var gradesSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Noten")
                     .font(.headline)
@@ -124,49 +201,146 @@ struct SubjectDetailView: View {
                 
                 Spacer()
                 
-                if !grades.isEmpty {
-                    Text("\(grades.count) Einträge")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                Button(action: {
+                    showingAddGradeType = true
+                }) {
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundColor(Color(hex: subject.colorHex))
+                        .font(.title2)
                 }
             }
             
-            if grades.isEmpty {
+            if allAvailableGradeTypes.isEmpty {
                 emptyStateView
             } else {
-                LazyVStack(spacing: 8) {
-                    ForEach(grades, id: \.self) { grade in
-                        GradeRowView(grade: grade)
+                LazyVStack(spacing: 12) {
+                    ForEach(allAvailableGradeTypes, id: \.id) { gradeType in
+                        gradeTypeBlock(for: gradeType)
                     }
                 }
             }
         }
     }
     
-    // Debug: Empty state when no grades exist
+    // Debug: Grade type block similar to subject blocks on ContentView
+    private func gradeTypeBlock(for gradeType: GradeType) -> some View {
+        let gradesForType = DataManager.getGrades(for: subject, gradeType: gradeType, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+        
+        return VStack(alignment: .leading, spacing: 12) {
+            // Debug: Grade type header
+            HStack {
+                Image(systemName: gradeType.icon)
+                    .foregroundColor(Color(hex: subject.colorHex))
+                    .font(.title2)
+                    .frame(width: 40, height: 40)
+                    .background(Color(hex: subject.colorHex).opacity(0.2))
+                    .cornerRadius(8)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(gradeType.name)
+                        .font(.headline)
+                        .fontWeight(.medium)
+                    
+                    Text("Gewichtung: \(gradeType.weight)% • \(gradesForType.count) Noten")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                // Debug: Quick add grade button for this type
+                Button(action: {
+                    selectedGradeTypeForNewGrade = gradeType
+                    showingAddGrade = true
+                }) {
+                    Image(systemName: "plus.circle")
+                        .foregroundColor(Color(hex: subject.colorHex))
+                        .font(.title2)
+                }
+                .buttonStyle(.plain)
+                
+                // Debug: Three dots menu for grade type management (now works for all types)
+                Menu {
+                    Button(action: {
+                        print("Debug: Setting grade type to edit: \(gradeType.name)")
+                        gradeTypeToEdit = gradeType
+                    }) {
+                        Label("Bearbeiten", systemImage: "pencil")
+                    }
+                    
+                    Button(role: .destructive, action: {
+                        gradeTypeToDelete = gradeType
+                        showingDeleteGradeTypeAlert = true
+                    }) {
+                        Label("Löschen", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .foregroundColor(.secondary)
+                        .font(.title2)
+                }
+                .buttonStyle(.plain)
+            }
+            
+            // Debug: Grades list or empty placeholder
+            if gradesForType.isEmpty {
+                Text("Noch keine Noten für diesen Typ")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
+            } else {
+                LazyVStack(spacing: 8) {
+                    ForEach(gradesForType, id: \.self) { grade in
+                        GradeRowView(grade: grade)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(.ultraThinMaterial)
+        .cornerRadius(10)
+    }
+    
+    // Debug: Empty state when no grade types exist
     private var emptyStateView: some View {
         VStack(spacing: 16) {
-            Image(systemName: "doc.text.below.ecg")
+            Image(systemName: "list.bullet.clipboard")
                 .font(.system(size: 50))
                 .foregroundColor(.secondary)
             
-            Text("Noch keine Noten")
+            Text("Keine Notentypen verfügbar")
                 .font(.title3)
                 .fontWeight(.medium)
                 .foregroundColor(.secondary)
             
-            Text("Füge deine erste Note für \(subject.name) hinzu")
+            Text("Erstelle zuerst einen Notentyp um Noten hinzuzufügen")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
             
-            Button("Erste Note hinzufügen") {
-                showingAddGrade = true
+            Button("Ersten Notentyp erstellen") {
+                showingAddGradeType = true
             }
             .buttonStyle(.borderedProminent)
         }
         .padding(.vertical, 40)
         .frame(maxWidth: .infinity)
+        .background(.ultraThinMaterial)
+        .cornerRadius(10)
+    }
+    
+    // Debug: Delete grade type and all its grades
+    private func deleteGradeType(_ gradeType: GradeType) {
+        // Debug: Delete all grades of this type first
+        DataManager.deleteGradesOfType(gradeType, for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+        
+        // Debug: Delete grade type from storage (now works for both custom and default types)
+        GradeTypeManager.deleteGradeType(gradeType)
+        
+        gradeTypeToDelete = nil
+        gradeTypesUpdateTrigger = UUID() // Debug: Trigger view refresh
+        print("Debug: Deleted grade type '\(gradeType.name)' and all its grades")
     }
     
     // Debug: Color coding for grades (German system: 0.7 = best, 6.0 = worst)
@@ -229,9 +403,8 @@ struct StatisticCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(Color(.systemBackground))
+        .background(.ultraThinMaterial)
         .cornerRadius(10)
-        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
     }
 }
 
@@ -250,36 +423,24 @@ struct GradeRowView: View {
                         .fontWeight(.bold)
                         .foregroundColor(gradeColor(for: grade.value))
                     
-                    Image(systemName: grade.type.icon)
-                        .foregroundColor(.secondary)
-                }
-                
-                Text(grade.type.name)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                
-                if let date = grade.date {
-                    Text(date, style: .date)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    if let date = grade.date {
+                        Text(date, style: .date)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
             
             Spacer()
             
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("Gewichtung: \(grade.type.weight)%")
+            Button(action: {
+                showingDeleteAlert = true
+            }) {
+                Image(systemName: "trash")
+                    .foregroundColor(.red)
                     .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Button(action: {
-                    showingDeleteAlert = true
-                }) {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
-                }
-                .buttonStyle(.borderless)
             }
+            .buttonStyle(.borderless)
         }
         .padding()
         .background(Color(.systemBackground))

@@ -25,13 +25,7 @@ struct ContentView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    VStack {
-                        SchoolYearPicker(selectedSchoolYear: $selectedSchoolYear)
-                        SemesterPicker(selectedSemester: $selectedSemester)
-                    }
-                    .padding(.vertical, 6)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(10)
+                    CardBasedSchoolPicker(selectedSchoolYear: $selectedSchoolYear, selectedSemester: $selectedSemester)
                     
                     // Debug: Subjects section
                     VStack(alignment: .leading, spacing: 12) {

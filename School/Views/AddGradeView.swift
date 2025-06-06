@@ -12,15 +12,27 @@ struct AddGradeView: View {
     let subject: Subject
     let schoolYear: SchoolYear
     let semester: Semester
+    let preselectedGradeType: GradeType?
     
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
-    @State private var gradeValue: Double = 2.0
+    @State private var gradeValue: Double? = nil // Debug: No grade selected by default
     @State private var selectedGradeType: GradeType = GradeType.defaultTypes[0]
     @State private var gradeDate: Date = Date()
-    @State private var showingAddGradeType = false
-    @State private var customGradeTypes: [GradeType] = []
+    
+    // Debug: Computed property to get all available grade types
+    private var allGradeTypes: [GradeType] {
+        return GradeTypeManager.getAllGradeTypes()
+    }
+    
+    // Debug: Default initializer for backwards compatibility
+    init(subject: Subject, schoolYear: SchoolYear, semester: Semester, preselectedGradeType: GradeType? = nil) {
+        self.subject = subject
+        self.schoolYear = schoolYear
+        self.semester = semester
+        self.preselectedGradeType = preselectedGradeType
+    }
     
     // Debug: Predefined grade values with German plus/minus system (+ = better/lower, - = worse/higher)
     private let predefinedGrades: [(value: Double, display: String)] = [
@@ -64,50 +76,20 @@ struct AddGradeView: View {
                     .disabled(!isValidGrade)
                 }
             }
-            .sheet(isPresented: $showingAddGradeType) {
-                AddGradeTypeView { newGradeType in
-                    addCustomGradeType(newGradeType)
+            .onAppear {
+                // Debug: Set preselected grade type if provided and available
+                if let preselectedType = preselectedGradeType,
+                   allGradeTypes.contains(where: { $0.id == preselectedType.id }) {
+                    selectedGradeType = preselectedType
+                } else if !allGradeTypes.isEmpty {
+                    // Debug: Fallback to first available grade type
+                    selectedGradeType = allGradeTypes[0]
                 }
             }
-            .onAppear {
-                loadCustomGradeTypes()
-            }
         }
     }
     
-    // Debug: Function to add new custom grade type
-    private func addCustomGradeType(_ gradeType: GradeType) {
-        customGradeTypes.append(gradeType)
-        selectedGradeType = gradeType
-        saveCustomGradeTypes()
-    }
-    
-    // Debug: Function to delete custom grade type
-    private func deleteCustomGradeType(at offsets: IndexSet) {
-        // Debug: Check if we're trying to delete the currently selected type
-        for index in offsets {
-            if customGradeTypes[index].id == selectedGradeType.id {
-                selectedGradeType = GradeType.defaultTypes[0]
-            }
-        }
-        customGradeTypes.remove(atOffsets: offsets)
-        saveCustomGradeTypes()
-    }
-    
-    // Debug: Save custom grade types to UserDefaults
-    private func saveCustomGradeTypes() {
-        if let data = try? JSONEncoder().encode(customGradeTypes) {
-            UserDefaults.standard.set(data, forKey: "customGradeTypes")
-        }
-    }
-    
-    // Debug: Load custom grade types from UserDefaults
-    private func loadCustomGradeTypes() {
-        if let data = UserDefaults.standard.data(forKey: "customGradeTypes"),
-           let types = try? JSONDecoder().decode([GradeType].self, from: data) {
-            customGradeTypes = types
-        }
-    }
+
     
     // Debug: Subject information display
     private var subjectInfoSection: some View {
@@ -116,6 +98,9 @@ struct AddGradeView: View {
                 Image(systemName: subject.icon)
                     .foregroundColor(Color(hex: subject.colorHex))
                     .font(.title2)
+                    .frame(width: 40, height: 40)
+                    .background(Color(hex: subject.colorHex).opacity(0.2))
+                    .cornerRadius(8)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(subject.name)
@@ -157,93 +142,30 @@ struct AddGradeView: View {
         }
     }
     
-    // Debug: Grade type selection with custom types and swipe-to-delete
+    // Debug: Grade type selection
     private var gradeTypeSection: some View {
         Section("Art der Bewertung") {
-            // Debug: Show picker only if we have types to choose from
             if !allGradeTypes.isEmpty {
                 Picker("Typ", selection: $selectedGradeType) {
                     ForEach(allGradeTypes, id: \.id) { type in
-                        if type.name != "ADD_NEW" {
-                            HStack {
-                                Image(systemName: type.icon)
-                                Text(type.name)
-                                Spacer()
-                                Text("Gewichtung: \(type.weight)%")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .tag(type)
-                        }
-                    }
-                    
-                    // Debug: Add new grade type option in picker
-                    HStack {
-                        Image(systemName: "plus.circle")
-                            .foregroundColor(.blue)
-                        Text("Neuen Notentyp hinzufügen")
-                            .foregroundColor(.blue)
-                        Spacer()
-                    }
-                    .tag(GradeType(name: "ADD_NEW", weight: 0, icon: "plus.circle"))
-                }
-                .pickerStyle(.navigationLink)
-                .onChange(of: selectedGradeType) { _, newValue in
-                    if newValue.name == "ADD_NEW" {
-                        showingAddGradeType = true
-                        // Reset to first available type
-                        selectedGradeType = allGradeTypes.first(where: { $0.name != "ADD_NEW" }) ?? GradeType.defaultTypes[0]
-                    }
-                }
-            }
-            
-            // Debug: Show custom types with swipe-to-delete
-            if !customGradeTypes.isEmpty {
-                Text("Benutzerdefinierte Notentypen")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.top, 8)
-                
-                ForEach(customGradeTypes, id: \.id) { customType in
-                    HStack {
-                        Image(systemName: customType.icon)
-                            .foregroundColor(.blue)
-                            .font(.title3)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(customType.name)
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                            Text("Gewichtung: \(customType.weight)%")
+                        HStack {
+                            Image(systemName: type.icon)
+                            Text(type.name)
+                            Spacer()
+                            Text("Gewichtung: \(type.weight)%")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
-                        Spacer()
-                        
-                        if selectedGradeType.id == customType.id {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.blue)
-                                .font(.title3)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        selectedGradeType = customType
+                        .tag(type)
                     }
                 }
-                .onDelete(perform: deleteCustomGradeType)
-                
-                Text("← Nach links wischen zum Löschen")
-                    .font(.caption)
+                .pickerStyle(.navigationLink)
+            } else {
+                Text("Keine Notentypen verfügbar. Füge welche in der Fachansicht hinzu.")
+                    .font(.subheadline)
                     .foregroundColor(.secondary)
-                    .italic()
             }
         }
-    }
-    
-    // Debug: Computed property to get all available grade types
-    private var allGradeTypes: [GradeType] {
-        return GradeType.defaultTypes + customGradeTypes
     }
     
     // Debug: Date selection
@@ -254,15 +176,18 @@ struct AddGradeView: View {
         }
     }
     
-    // Debug: Validation for save button
+    // Debug: Validation for save button - requires grade to be selected
     private var isValidGrade: Bool {
-        return gradeValue >= 0.7 && gradeValue <= 6.0
+        guard let value = gradeValue else { return false } // Debug: No grade selected
+        return value >= 0.7 && value <= 6.0 && !allGradeTypes.isEmpty
     }
     
     // Debug: Save the new grade
     private func saveGrade() {
+        guard let value = gradeValue else { return } // Debug: Should not happen due to validation
+        
         DataManager.createGrade(
-            value: gradeValue,
+            value: value,
             type: selectedGradeType,
             date: gradeDate,
             for: subject,

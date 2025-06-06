@@ -1,5 +1,5 @@
 //
-//  AddGradeTypeView.swift
+//  EditGradeTypeView.swift
 //  School
 //
 //  Created by Carl on 05.06.25.
@@ -7,8 +7,9 @@
 
 import SwiftUI
 
-struct AddGradeTypeView: View {
+struct EditGradeTypeView: View {
     @Environment(\.dismiss) private var dismiss
+    let gradeType: GradeType
     let onSave: (GradeType) -> Void
     
     @State private var typeName: String = ""
@@ -39,7 +40,7 @@ struct AddGradeTypeView: View {
                 // Debug: Preview section
                 previewSection
             }
-            .navigationTitle("Notentyp hinzufügen")
+            .navigationTitle("Notentyp bearbeiten")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -55,6 +56,13 @@ struct AddGradeTypeView: View {
                     .fontWeight(.semibold)
                     .disabled(!isValidInput)
                 }
+            }
+            .onAppear {
+                // Debug: Pre-populate fields with existing grade type data
+                typeName = gradeType.name
+                weight = gradeType.weight
+                weightText = "\(gradeType.weight)"
+                selectedIcon = gradeType.icon
             }
         }
     }
@@ -104,6 +112,7 @@ struct AddGradeTypeView: View {
                         weightText = "\(weight)"
                     }
                 ), in: 1...100, step: 1)
+                .accentColor(.blue)
                 
                 HStack {
                     Text("1%")
@@ -113,6 +122,7 @@ struct AddGradeTypeView: View {
                     Text("\(weight)%")
                         .font(.caption)
                         .fontWeight(.medium)
+                        .foregroundColor(.blue)
                     Spacer()
                     Text("100%")
                         .font(.caption)
@@ -136,13 +146,13 @@ struct AddGradeTypeView: View {
                     }) {
                         Image(systemName: icon)
                             .font(.title2)
-                            .foregroundColor(selectedIcon == icon ? .accentColor : .secondary)
+                            .foregroundColor(selectedIcon == icon ? .blue : .secondary)
                             .frame(width: 50, height: 50)
-                            .background(selectedIcon == icon ? Color.accentColor.opacity(0.1) : Color.clear)
+                            .background(selectedIcon == icon ? Color.blue.opacity(0.1) : Color.clear)
                             .cornerRadius(8)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .stroke(selectedIcon == icon ? Color.accentColor : Color.clear, lineWidth: 2)
+                                    .stroke(selectedIcon == icon ? Color.blue : Color.clear, lineWidth: 2)
                             )
                             .scaleEffect(selectedIcon == icon ? 1.1 : 1.0)
                             .animation(.spring(response: 0.3), value: selectedIcon)
@@ -159,7 +169,7 @@ struct AddGradeTypeView: View {
         Section("Vorschau") {
             HStack {
                 Image(systemName: selectedIcon)
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.blue)
                     .font(.title2)
                 
                 VStack(alignment: .leading, spacing: 2) {
@@ -175,7 +185,7 @@ struct AddGradeTypeView: View {
                 Spacer()
             }
             .padding(.vertical, 8)
-                }
+        }
     }
     
     // Debug: Validation for save button
@@ -184,14 +194,15 @@ struct AddGradeTypeView: View {
         return !trimmedName.isEmpty && weight >= 1 && weight <= 100
     }
     
-    // Debug: Save the new grade type and call callback
+    // Debug: Save the updated grade type and call callback
     private func saveGradeType() {
         let trimmedName = typeName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let newGradeType = GradeType(name: trimmedName, weight: weight, icon: selectedIcon)
+        // Debug: Preserve the original ID for updates
+        let updatedGradeType = GradeType(id: gradeType.id, name: trimmedName, weight: weight, icon: selectedIcon)
         
-        print("Debug: Created new grade type - Name: \(trimmedName), Weight: \(weight)%, Icon: \(selectedIcon)")
+        print("Debug: Updated grade type - ID: \(gradeType.id), Name: \(trimmedName), Weight: \(weight)%, Icon: \(selectedIcon)")
         
-        onSave(newGradeType)
+        onSave(updatedGradeType)
         dismiss()
     }
 } 
