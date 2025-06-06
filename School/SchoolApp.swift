@@ -6,12 +6,15 @@
 //
 
 import SwiftUI
+import SwiftData
 
 @main
 struct SchoolApp: App {
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }
+  var body: some Scene {
+    WindowGroup {
+      ContentView()
     }
+    // Debug: Configure SwiftData model container for Subject and Grade persistence
+    .modelContainer(for: [Subject.self, Grade.self])
+  }
 }
