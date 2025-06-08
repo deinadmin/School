@@ -14,14 +14,14 @@ struct AddGradeTypeView: View {
     @State private var typeName: String = ""
     @State private var weight: Int = 10
     @State private var weightText: String = "10"
-    @State private var selectedIcon: String = "doc.text"
+    @State private var selectedIcon: String = "doc.text.fill"
     
     // Debug: Icon options for grade types
     private let iconOptions: [String] = [
-        "doc.text", "questionmark.circle", "mic", "house",
-        "person.2", "chart.bar", "star", "checkmark.circle",
-        "pencil", "book", "trophy", "target", "clipboard",
-        "calendar", "timer", "exclamationmark.triangle"
+        "doc.text.fill", "questionmark.circle.fill", "mic.fill", "house.fill",
+        "person.2.fill", "chart.bar.fill", "star.fill", "checkmark.circle.fill",
+        "pencil", "book.fill", "trophy.fill", "target", "clipboard.fill",
+        "calendar", "timer", "exclamationmark.triangle.fill"
     ]
     
     var body: some View {
@@ -103,7 +103,7 @@ struct AddGradeTypeView: View {
                         weight = Int(newValue.rounded())
                         weightText = "\(weight)"
                     }
-                ), in: 1...100, step: 1)
+                ), in: 10...100, step: 10)
                 
                 HStack {
                     Text("1%")
@@ -161,6 +161,9 @@ struct AddGradeTypeView: View {
                 Image(systemName: selectedIcon)
                     .foregroundColor(.accentColor)
                     .font(.title2)
+                    .frame(width: 40, height: 40)
+                    .background(Color.accentColor.opacity(0.2))
+                    .cornerRadius(8)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(typeName.isEmpty ? "Name des Notentyps" : typeName)

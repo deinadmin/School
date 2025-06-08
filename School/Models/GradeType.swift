@@ -6,36 +6,35 @@
 //
 
 import Foundation
+import SwiftData
 
 /// Represents different types of grades (German: NotenType)
-struct GradeType: Identifiable, Hashable, Codable {
-    let id: UUID
+/// Debug: Now stored in SwiftData and connected to subjects on a per-subject basis
+@Model
+final class GradeType {
     var name: String
     var weight: Int // Debug: in % (percentage)
     var icon: String
     
-    init(name: String, weight: Int, icon: String) {
-        self.id = UUID()
+    // Debug: SwiftData relationship to subject (inverse relationship)
+    var subject: Subject?
+    
+    // Debug: SwiftData relationship to grades
+    @Relationship(deleteRule: .cascade) var grades: [Grade] = []
+    
+    init(name: String, weight: Int, icon: String, subject: Subject? = nil) {
         self.name = name
         self.weight = weight
         self.icon = icon
+        self.subject = subject
     }
     
-    // Debug: Init with existing ID for updates
-    init(id: UUID, name: String, weight: Int, icon: String) {
-        self.id = id
-        self.name = name
-        self.weight = weight
-        self.icon = icon
-    }
+    /// Default grade types for German schools with percentage weights
+    /// Debug: These are used as templates when creating new subjects
+    static let defaultSchriftlich = (name: "Schriftlich", weight: 40, icon: "pencil")
+    static let defaultMuendlich = (name: "Mündlich", weight: 60, icon: "bubble.fill")
     
-    /// Common grade types for German schools with percentage weights
-    static let homework = GradeType(name: "Hausaufgabe", weight: 10, icon: "house")
-    static let exam = GradeType(name: "Klassenarbeit", weight: 50, icon: "doc.text")
-    static let oralParticipation = GradeType(name: "Mündliche Mitarbeit", weight: 20, icon: "mic")
-    static let test = GradeType(name: "Test", weight: 30, icon: "questionmark.circle")
-    
-    static let defaultTypes: [GradeType] = [
-        .homework, .exam, .oralParticipation, .test
+    static let defaultTypes: [(name: String, weight: Int, icon: String)] = [
+        defaultSchriftlich, defaultMuendlich
     ]
 }

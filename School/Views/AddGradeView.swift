@@ -18,12 +18,12 @@ struct AddGradeView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var gradeValue: Double? = nil // Debug: No grade selected by default
-    @State private var selectedGradeType: GradeType = GradeType.defaultTypes[0]
+    @State private var selectedGradeType: GradeType = GradeType(name: "Schriftlich", weight: 40, icon: "pencil")
     @State private var gradeDate: Date = Date()
     
-    // Debug: Computed property to get all available grade types
+    // Debug: Computed property to get all available grade types for this subject
     private var allGradeTypes: [GradeType] {
-        return GradeTypeManager.getAllGradeTypes()
+        return GradeTypeManager.getGradeTypes(for: subject, from: modelContext)
     }
     
     // Debug: Default initializer for backwards compatibility
@@ -34,15 +34,7 @@ struct AddGradeView: View {
         self.preselectedGradeType = preselectedGradeType
     }
     
-    // Debug: Predefined grade values with German plus/minus system (+ = better/lower, - = worse/higher)
-    private let predefinedGrades: [(value: Double, display: String)] = [
-        (0.7, "1+"), (1.0, "1"), (1.3, "1-"),
-        (1.7, "2+"), (2.0, "2"), (2.3, "2-"),
-        (2.7, "3+"), (3.0, "3"), (3.3, "3-"),
-        (3.7, "4+"), (4.0, "4"), (4.3, "4-"),
-        (4.7, "5+"), (5.0, "5"), (5.3, "5-"),
-        (5.7, "6+"), (6.0, "6")
-    ]
+
     
     var body: some View {
         NavigationStack {
@@ -79,7 +71,7 @@ struct AddGradeView: View {
             .onAppear {
                 // Debug: Set preselected grade type if provided and available
                 if let preselectedType = preselectedGradeType,
-                   allGradeTypes.contains(where: { $0.id == preselectedType.id }) {
+                   allGradeTypes.contains(where: { $0.name == preselectedType.name }) {
                     selectedGradeType = preselectedType
                 } else if !allGradeTypes.isEmpty {
                     // Debug: Fallback to first available grade type
@@ -117,28 +109,89 @@ struct AddGradeView: View {
         }
     }
     
-    // Debug: Grade value selection with German plus/minus notation
+    // Debug: Improved grade value selection with 3 per row and distinct colors
     private var gradeValueSection: some View {
         Section("Notenwert") {
-            // Debug: Grid of predefined grade buttons with plus/minus display
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 8) {
-                ForEach(predefinedGrades, id: \.value) { gradeItem in
-                    Button(action: {
-                        gradeValue = gradeItem.value
-                    }) {
-                        Text(gradeItem.display)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(gradeValue == gradeItem.value ? .white : gradeColor(for: gradeItem.value))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(gradeValue == gradeItem.value ? gradeColor(for: gradeItem.value) : gradeColor(for: gradeItem.value).opacity(0.1))
-                            .cornerRadius(8)
+            VStack(spacing: 12) {
+                // Debug: Organized grade rows (+ grade, grade, - grade)
+                ForEach(gradeRows, id: \.0) { row in
+                    HStack(spacing: 12) {
+                        ForEach(row.1, id: \.value) { gradeItem in
+                            gradeButton(for: gradeItem, rowColor: row.2)
+                        }
+                        
+                        // Debug: Add empty space for last row (6+, 6, empty)
+                        if row.1.count < 3 {
+                            Spacer()
+                                .frame(maxWidth: .infinity)
+                        }
                     }
-                    .buttonStyle(.plain)
                 }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 8)
+        }
+    }
+    
+    // Debug: Individual grade button with animations
+    private func gradeButton(for gradeItem: (value: Double, display: String), rowColor: Color) -> some View {
+        Button(action: {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                gradeValue = gradeItem.value
+            }
+        }) {
+            Text(gradeItem.display)
+                .font(.title3)
+                .fontWeight(.semibold)
+                .foregroundColor(gradeValue == gradeItem.value ? .white : rowColor)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .background(
+                    Group {
+                        if gradeValue == gradeItem.value {
+                            rowColor
+                        } else {
+                            rowColor.opacity(0.12)
+                        }
+                    }
+                )
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(rowColor.opacity(gradeValue == gradeItem.value ? 0 : 0.3), lineWidth: 1)
+                )
+                .scaleEffect(gradeValue == gradeItem.value ? 1.05 : 1.0)
+                .shadow(
+                    color: gradeValue == gradeItem.value ? rowColor.opacity(0.3) : .clear,
+                    radius: gradeValue == gradeItem.value ? 8 : 0,
+                    x: 0, y: 4
+                )
+        }
+        .buttonStyle(.plain)
+        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: gradeValue)
+    }
+    
+    // Debug: Organized grade rows with unique colors per row matching updated SubjectDetailView
+    private var gradeRows: [(Int, [(value: Double, display: String)], Color)] {
+        [
+            (1, [(0.7, "1+"), (1.0, "1"), (1.3, "1-")], .green),    // Debug: 0.7-1.3 = green (best)
+            (2, [(1.7, "2+"), (2.0, "2"), (2.3, "2-")], .blue),     // Debug: 1.7-2.3 = blue (good)
+            (3, [(2.7, "3+"), (3.0, "3"), (3.3, "3-")], .cyan),     // Debug: 2.7-3.3 = cyan (okay)
+            (4, [(3.7, "4+"), (4.0, "4"), (4.3, "4-")], .orange),   // Debug: 3.7-4.3 = orange (poor)
+            (5, [(4.7, "5+"), (5.0, "5"), (5.3, "5-")], .red),      // Debug: 4.7-5.3 = red (bad)
+            (6, [(5.7, "6+"), (6.0, "6")], .pink) // Debug: 5.7-6.0 = pink (worst), only 2 grades
+        ]
+    }
+    
+    // Debug: Color coding function with unique colors per grade range (German system: 0.7 = best, 6.0 = worst)
+    private func gradeColor(for grade: Double) -> Color {
+        switch grade {
+        case 0.7..<1.7: return .green    // Debug: Grade 1 range
+        case 1.7..<2.7: return .blue     // Debug: Grade 2 range
+        case 2.7..<3.7: return .cyan     // Debug: Grade 3 range
+        case 3.7..<4.7: return .orange   // Debug: Grade 4 range
+        case 4.7..<5.7: return .red      // Debug: Grade 5 range
+        case 5.7...6.0: return .pink     // Debug: Grade 6 range
+        default: return .gray
         }
     }
     
@@ -147,7 +200,7 @@ struct AddGradeView: View {
         Section("Art der Bewertung") {
             if !allGradeTypes.isEmpty {
                 Picker("Typ", selection: $selectedGradeType) {
-                    ForEach(allGradeTypes, id: \.id) { type in
+                    ForEach(allGradeTypes, id: \.name) { type in
                         HStack {
                             Image(systemName: type.icon)
                             Text(type.name)
@@ -188,7 +241,7 @@ struct AddGradeView: View {
         
         DataManager.createGrade(
             value: value,
-            type: selectedGradeType,
+            gradeType: selectedGradeType,
             date: gradeDate,
             for: subject,
             schoolYear: schoolYear,
@@ -199,14 +252,5 @@ struct AddGradeView: View {
         dismiss()
     }
     
-    // Debug: Color coding for grades (German system: 0.7 = best, 6.0 = worst)
-    private func gradeColor(for grade: Double) -> Color {
-        switch grade {
-        case 0.0..<2.0: return .green
-        case 2.0..<3.0: return .blue
-        case 3.0..<4.0: return .orange
-        case 4.0..<5.0: return .red
-        default: return .red
-        }
-    }
+
 } 

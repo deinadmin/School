@@ -20,6 +20,9 @@ final class Subject {
     // Debug: SwiftData relationship to grades
     @Relationship(deleteRule: .cascade) var grades: [Grade] = []
     
+    // Debug: SwiftData relationship to grade types (each subject has its own grade types)
+    @Relationship(deleteRule: .cascade) var gradeTypes: [GradeType] = []
+    
     init(name: String, colorHex: String, icon: String) {
         self.name = name
         self.colorHex = colorHex

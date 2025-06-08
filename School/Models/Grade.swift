@@ -13,7 +13,6 @@ import SwiftData
 @Model
 final class Grade {
     var value: Double
-    var type: GradeType
     var date: Date?
     var schoolYearStartYear: Int // Debug: Grade belongs to specific school year
     var semester: Semester       // Debug: Grade belongs to specific semester
@@ -21,9 +20,12 @@ final class Grade {
     // Debug: SwiftData relationship to subject (inverse relationship)
     var subject: Subject?
     
-    init(value: Double, type: GradeType, date: Date? = nil, schoolYearStartYear: Int, semester: Semester, subject: Subject) {
+    // Debug: SwiftData relationship to grade type (inverse relationship)
+    var gradeType: GradeType?
+    
+    init(value: Double, gradeType: GradeType, date: Date? = nil, schoolYearStartYear: Int, semester: Semester, subject: Subject) {
         self.value = value
-        self.type = type
+        self.gradeType = gradeType
         self.date = date
         self.schoolYearStartYear = schoolYearStartYear
         self.semester = semester
@@ -33,5 +35,10 @@ final class Grade {
     // Debug: Computed property to recreate SchoolYear from stored data
     var schoolYear: SchoolYear {
         return SchoolYear(startYear: schoolYearStartYear)
+    }
+    
+    // Debug: Backward compatibility property for accessing grade type
+    var type: GradeType? {
+        return gradeType
     }
 }

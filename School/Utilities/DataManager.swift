@@ -9,7 +9,7 @@ import Foundation
 import SwiftData
 
 /// DataManager for SwiftData operations
-/// Debug: Provides helper methods for working with Subject and Grade models
+/// Debug: Provides helper methods for working with Subject, GradeType and Grade models
 class DataManager {
     
     // MARK: - Subject Operations
@@ -28,20 +28,56 @@ class DataManager {
         }
     }
     
-    /// Create a new subject (without school year/semester)
-    static func createSubject(name: String, colorHex: String, icon: String, in context: ModelContext) {
+    /// Create a new subject with default or custom grade types
+    static func createSubject(name: String, colorHex: String, icon: String, customGradeTypes: [(name: String, weight: Int, icon: String)]? = nil, in context: ModelContext) {
         let subject = Subject(name: name, colorHex: colorHex, icon: icon)
         context.insert(subject)
         
+        // Debug: Create custom grade types if provided, otherwise use defaults
+        if let customTypes = customGradeTypes {
+            createCustomGradeTypes(customTypes, for: subject, in: context)
+        } else {
+            createDefaultGradeTypes(for: subject, in: context)
+        }
+        
         do {
             try context.save()
-            print("Debug: Subject '\(name)' created successfully")
+            let typeDescription = customGradeTypes != nil ? "custom grade types" : "default grade types"
+            print("Debug: Subject '\(name)' created successfully with \(typeDescription)")
         } catch {
             print("Debug: Error saving subject: \(error)")
         }
     }
     
-    /// Delete a subject and all its grades
+    /// Create default grade types for a subject
+    static func createDefaultGradeTypes(for subject: Subject, in context: ModelContext) {
+        for defaultType in GradeType.defaultTypes {
+            let gradeType = GradeType(
+                name: defaultType.name,
+                weight: defaultType.weight,
+                icon: defaultType.icon,
+                subject: subject
+            )
+            context.insert(gradeType)
+        }
+        print("Debug: Created \(GradeType.defaultTypes.count) default grade types for subject '\(subject.name)'")
+    }
+    
+    /// Create custom grade types for a subject
+    static func createCustomGradeTypes(_ customTypes: [(name: String, weight: Int, icon: String)], for subject: Subject, in context: ModelContext) {
+        for customType in customTypes {
+            let gradeType = GradeType(
+                name: customType.name,
+                weight: customType.weight,
+                icon: customType.icon,
+                subject: subject
+            )
+            context.insert(gradeType)
+        }
+        print("Debug: Created \(customTypes.count) custom grade types for subject '\(subject.name)': \(customTypes.map { $0.name }.joined(separator: ", "))")
+    }
+    
+    /// Delete a subject and all its grades and grade types
     static func deleteSubject(_ subject: Subject, from context: ModelContext) {
         context.delete(subject)
         
@@ -53,6 +89,65 @@ class DataManager {
         }
     }
     
+    // MARK: - Grade Type Operations
+    
+    /// Get all grade types for a specific subject
+    static func getGradeTypes(for subject: Subject, from context: ModelContext) -> [GradeType] {
+        // Debug: Fetch all grade types and filter in memory to avoid complex predicate issues
+        let descriptor = FetchDescriptor<GradeType>(
+            sortBy: [SortDescriptor(\.name)]
+        )
+        
+        do {
+            let allGradeTypes = try context.fetch(descriptor)
+            return allGradeTypes.filter { gradeType in
+                gradeType.subject?.name == subject.name
+            }
+        } catch {
+            print("Debug: Error fetching grade types for subject '\(subject.name)': \(error)")
+            return []
+        }
+    }
+    
+    /// Create a new grade type for a subject
+    static func createGradeType(name: String, weight: Int, icon: String, for subject: Subject, in context: ModelContext) {
+        let gradeType = GradeType(name: name, weight: weight, icon: icon, subject: subject)
+        context.insert(gradeType)
+        
+        do {
+            try context.save()
+            print("Debug: Grade type '\(name)' created for subject '\(subject.name)'")
+        } catch {
+            print("Debug: Error saving grade type: \(error)")
+        }
+    }
+    
+    /// Update an existing grade type
+    static func updateGradeType(_ gradeType: GradeType, name: String, weight: Int, icon: String, in context: ModelContext) {
+        gradeType.name = name
+        gradeType.weight = weight
+        gradeType.icon = icon
+        
+        do {
+            try context.save()
+            print("Debug: Grade type updated: '\(name)'")
+        } catch {
+            print("Debug: Error updating grade type: \(error)")
+        }
+    }
+    
+    /// Delete a grade type and all its grades
+    static func deleteGradeType(_ gradeType: GradeType, from context: ModelContext) {
+        context.delete(gradeType)
+        
+        do {
+            try context.save()
+            print("Debug: Grade type '\(gradeType.name)' deleted successfully")
+        } catch {
+            print("Debug: Error deleting grade type: \(error)")
+        }
+    }
+    
     // MARK: - Grade Operations
     
     /// Get all grades for a specific subject in a specific school year and semester
@@ -60,7 +155,7 @@ class DataManager {
         let subjectName = subject.name
         let schoolYearStart = schoolYear.startYear
         
-        // Debug: Use simpler predicate without enum rawValue to avoid SwiftData schema issues
+        // Debug: Use simpler predicate and filter in memory to avoid SwiftData schema issues
         let descriptor = FetchDescriptor<Grade>(
             predicate: #Predicate<Grade> { grade in
                 grade.schoolYearStartYear == schoolYearStart
@@ -70,7 +165,7 @@ class DataManager {
         
         do {
             let allGrades = try context.fetch(descriptor)
-            // Debug: Filter by semester and subject in memory to avoid SwiftData enum predicate issues
+            // Debug: Filter by semester and subject in memory to avoid SwiftData predicate issues
             return allGrades.filter { grade in
                 grade.semester == semester && grade.subject?.name == subjectName
             }
@@ -105,13 +200,13 @@ class DataManager {
     }
     
     /// Create a new grade for a subject in specific school year/semester
-    static func createGrade(value: Double, type: GradeType, date: Date? = nil, for subject: Subject, schoolYear: SchoolYear, semester: Semester, in context: ModelContext) {
-        let grade = Grade(value: value, type: type, date: date, schoolYearStartYear: schoolYear.startYear, semester: semester, subject: subject)
+    static func createGrade(value: Double, gradeType: GradeType, date: Date? = nil, for subject: Subject, schoolYear: SchoolYear, semester: Semester, in context: ModelContext) {
+        let grade = Grade(value: value, gradeType: gradeType, date: date, schoolYearStartYear: schoolYear.startYear, semester: semester, subject: subject)
         context.insert(grade)
         
         do {
             try context.save()
-            print("Debug: Grade \(value) created for subject '\(subject.name)' in \(schoolYear.displayName) \(semester.displayName)")
+            print("Debug: Grade \(value) created for subject '\(subject.name)' with type '\(gradeType.name)' in \(schoolYear.displayName) \(semester.displayName)")
         } catch {
             print("Debug: Error saving grade: \(error)")
         }
@@ -138,11 +233,13 @@ class DataManager {
         guard !grades.isEmpty else { return nil }
         
         let totalWeightedPoints = grades.reduce(0.0) { total, grade in
-            total + (grade.value * Double(grade.type.weight))
+            let weight = grade.gradeType?.weight ?? 0
+            return total + (grade.value * Double(weight))
         }
         
         let totalWeight = grades.reduce(0) { total, grade in
-            total + grade.type.weight
+            let weight = grade.gradeType?.weight ?? 0
+            return total + weight
         }
         
         guard totalWeight > 0 else { return nil }
@@ -161,23 +258,10 @@ class DataManager {
         return allSubjects.filter { subjectNames.contains($0.name) }
     }
     
-    // MARK: - Grade Type Operations
-    
-    /// Get unique grade types used by a subject in specific school year/semester
-    static func getGradeTypes(for subject: Subject, schoolYear: SchoolYear, semester: Semester, from context: ModelContext) -> [GradeType] {
-        let grades = getGrades(for: subject, schoolYear: schoolYear, semester: semester, from: context)
-        let uniqueTypes = Dictionary(grouping: grades, by: { $0.type.id })
-            .compactMapValues { $0.first?.type }
-            .values
-        
-        print("Debug: Found \(uniqueTypes.count) unique grade types for '\(subject.name)' in \(schoolYear.displayName) \(semester.displayName)")
-        return Array(uniqueTypes).sorted { $0.name < $1.name }
-    }
-    
     /// Get grades for a specific grade type within a subject/period
     static func getGrades(for subject: Subject, gradeType: GradeType, schoolYear: SchoolYear, semester: Semester, from context: ModelContext) -> [Grade] {
         let allGrades = getGrades(for: subject, schoolYear: schoolYear, semester: semester, from: context)
-        return allGrades.filter { $0.type.id == gradeType.id }
+        return allGrades.filter { $0.gradeType?.name == gradeType.name && $0.gradeType?.subject?.name == subject.name }
     }
     
     /// Delete all grades of a specific type for a subject in specific period

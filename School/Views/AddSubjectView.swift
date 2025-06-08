@@ -8,11 +8,35 @@
 import SwiftUI
 import SwiftData
 
-// Debug: Structure for subject suggestions with colors and icons
+// Debug: Structure for defining grade types in subject suggestions
+struct GradeTypeDefinition {
+    let name: String
+    let weight: Int
+    let icon: String
+}
+
+// Debug: Structure for subject suggestions with colors, icons, and custom grade types
 struct SubjectSuggestion {
     let name: String
     let colorHex: String
     let icon: String
+    let customGradeTypes: [GradeTypeDefinition]? // Debug: If nil, use default grade types
+    
+    // Debug: Convenience initializer for subjects with default grade types
+    init(name: String, colorHex: String, icon: String) {
+        self.name = name
+        self.colorHex = colorHex
+        self.icon = icon
+        self.customGradeTypes = nil
+    }
+    
+    // Debug: Full initializer for subjects with custom grade types
+    init(name: String, colorHex: String, icon: String, customGradeTypes: [GradeTypeDefinition]) {
+        self.name = name
+        self.colorHex = colorHex
+        self.icon = icon
+        self.customGradeTypes = customGradeTypes
+    }
 }
 
 struct AddSubjectView: View {
@@ -21,7 +45,8 @@ struct AddSubjectView: View {
     
     @State private var subjectName: String = ""
     @State private var selectedColorHex: String = "4ECDC4"
-    @State private var selectedIcon: String = "book"
+    @State private var selectedIcon: String = "book.fill"
+    @State private var selectedCustomGradeTypes: [GradeTypeDefinition]? = nil // Debug: Store custom grade types from suggestions
     
     // Debug: Query existing subjects to check for duplicates
     @Query(sort: \Subject.name) private var existingSubjects: [Subject]
@@ -56,29 +81,97 @@ struct AddSubjectView: View {
         "chart.bar.fill", "figure.run", "laptopcomputer", "bubble.left.and.text.bubble.right.fill"
     ]
     
-    // Debug: Subject suggestions with improved colors for better visibility in both light and dark modes
+    // Debug: Subject suggestions with official German school grade weightings
     private let subjectSuggestions: [SubjectSuggestion] = [
-        SubjectSuggestion(name: "Mathematik", colorHex: "45B7D1", icon: "function"),
-        SubjectSuggestion(name: "Deutsch", colorHex: "FF6B6B", icon: "book.closed.fill"),
-        SubjectSuggestion(name: "Englisch", colorHex: "D4AF37", icon: "globe.europe.africa"),
-        SubjectSuggestion(name: "Französisch", colorHex: "8E44AD", icon: "flag.fill"),
-        SubjectSuggestion(name: "Spanisch", colorHex: "E67E22", icon: "flag.fill"),
-        SubjectSuggestion(name: "Physik", colorHex: "3498DB", icon: "atom"),
-        SubjectSuggestion(name: "Chemie", colorHex: "16A085", icon: "atom"),
+        // Debug: Subjects with 50/50 split
+        SubjectSuggestion(name: "Deutsch", colorHex: "FF6B6B", icon: "book.closed.fill", customGradeTypes: [
+            GradeTypeDefinition(name: "Schriftlich", weight: 50, icon: "pencil"),
+            GradeTypeDefinition(name: "Mündlich", weight: 50, icon: "bubble.fill")
+        ]),
+        SubjectSuggestion(name: "Mathematik", colorHex: "45B7D1", icon: "function", customGradeTypes: [
+            GradeTypeDefinition(name: "Schriftlich", weight: 50, icon: "pencil"),
+            GradeTypeDefinition(name: "Mündlich", weight: 50, icon: "bubble.fill")
+        ]),
+        
+        // Debug: Modern foreign languages with vocabulary tests
+        SubjectSuggestion(name: "Englisch", colorHex: "D4AF37", icon: "globe.europe.africa", customGradeTypes: [
+            GradeTypeDefinition(name: "Schriftlich", weight: 40, icon: "pencil"),
+            GradeTypeDefinition(name: "Mündlich", weight: 50, icon: "bubble.fill"),
+            GradeTypeDefinition(name: "Vokabeltests", weight: 10, icon: "doc.text.fill")
+        ]),
+        SubjectSuggestion(name: "Französisch", colorHex: "8E44AD", icon: "flag.fill", customGradeTypes: [
+            GradeTypeDefinition(name: "Schriftlich", weight: 40, icon: "pencil"),
+            GradeTypeDefinition(name: "Mündlich", weight: 50, icon: "bubble.fill"),
+            GradeTypeDefinition(name: "Vokabeltests", weight: 10, icon: "doc.text.fill")
+        ]),
+        SubjectSuggestion(name: "Spanisch", colorHex: "E67E22", icon: "flag.fill", customGradeTypes: [
+            GradeTypeDefinition(name: "Schriftlich", weight: 40, icon: "pencil"),
+            GradeTypeDefinition(name: "Mündlich", weight: 50, icon: "bubble.fill"),
+            GradeTypeDefinition(name: "Vokabeltests", weight: 10, icon: "doc.text.fill")
+        ]),
+        
+        // Debug: Latin with special focus on translations
+        SubjectSuggestion(name: "Latein", colorHex: "D4AF37", icon: "book.closed.fill", customGradeTypes: [
+            GradeTypeDefinition(name: "Schriftlich", weight: 50, icon: "pencil"),
+            GradeTypeDefinition(name: "Mündlich", weight: 40, icon: "bubble.fill"),
+            GradeTypeDefinition(name: "Vokabeltests", weight: 10, icon: "doc.text.fill")
+        ]),
+        
+        // Debug: Sciences with practical components
+        SubjectSuggestion(name: "Chemie", colorHex: "16A085", icon: "atom", customGradeTypes: [
+            GradeTypeDefinition(name: "Schriftlich", weight: 40, icon: "pencil"),
+            GradeTypeDefinition(name: "Mündlich", weight: 50, icon: "bubble.fill"),
+            GradeTypeDefinition(name: "Praktisch", weight: 10, icon: "testtube.2")
+        ]),
+        SubjectSuggestion(name: "Physik", colorHex: "3498DB", icon: "atom", customGradeTypes: [
+            GradeTypeDefinition(name: "Schriftlich", weight: 40, icon: "pencil"),
+            GradeTypeDefinition(name: "Mündlich", weight: 50, icon: "bubble.fill"),
+            GradeTypeDefinition(name: "Praktisch", weight: 10, icon: "testtube.2")
+        ]),
+        
+        // Debug: Creative subjects with practical focus
+        SubjectSuggestion(name: "Kunst", colorHex: "E74C3C", icon: "paintbrush.fill", customGradeTypes: [
+            GradeTypeDefinition(name: "Praktisch", weight: 70, icon: "paintbrush.fill"),
+            GradeTypeDefinition(name: "Sonstige", weight: 30, icon: "bubble.fill")
+        ]),
+        SubjectSuggestion(name: "Musik", colorHex: "8E44AD", icon: "music.note", customGradeTypes: [
+            GradeTypeDefinition(name: "Praktisch", weight: 60, icon: "music.note"),
+            GradeTypeDefinition(name: "Schriftlich", weight: 20, icon: "pencil"),
+            GradeTypeDefinition(name: "Sonstige", weight: 20, icon: "bubble.fill")
+        ]),
+        
+        // Debug: Sport with heavy practical focus
+        SubjectSuggestion(name: "Sport", colorHex: "E74C3C", icon: "figure.run", customGradeTypes: [
+            GradeTypeDefinition(name: "Praktisch", weight: 80, icon: "figure.run"),
+            GradeTypeDefinition(name: "Sonstige", weight: 20, icon: "bubble.fill")
+        ]),
+        
+        // Debug: Computer science with balanced approach
+        SubjectSuggestion(name: "Informatik", colorHex: "2980B9", icon: "laptopcomputer", customGradeTypes: [
+            GradeTypeDefinition(name: "Schriftlich", weight: 30, icon: "pencil"),
+            GradeTypeDefinition(name: "Praktisch", weight: 40, icon: "laptopcomputer"),
+            GradeTypeDefinition(name: "Mündlich", weight: 30, icon: "bubble.fill")
+        ]),
+        
+        // Debug: Philosophy/Religion with high oral component
+        SubjectSuggestion(name: "Religion", colorHex: "E91E63", icon: "heart.fill", customGradeTypes: [
+            GradeTypeDefinition(name: "Schriftlich", weight: 30, icon: "pencil"),
+            GradeTypeDefinition(name: "Mündlich", weight: 70, icon: "bubble.fill")
+        ]),
+        SubjectSuggestion(name: "Philosophie", colorHex: "8E44AD", icon: "brain.fill", customGradeTypes: [
+            GradeTypeDefinition(name: "Schriftlich", weight: 30, icon: "pencil"),
+            GradeTypeDefinition(name: "Mündlich", weight: 70, icon: "bubble.fill")
+        ]),
+        
+        // Debug: Subjects using default weightings (Schriftlich 40%, Mündlich 60%)
         SubjectSuggestion(name: "Biologie", colorHex: "27AE60", icon: "leaf.fill"),
         SubjectSuggestion(name: "Geschichte", colorHex: "D4AF37", icon: "book.fill"),
         SubjectSuggestion(name: "Erdkunde", colorHex: "00BCD4", icon: "globe.europe.africa"),
+        SubjectSuggestion(name: "Geographie", colorHex: "00BCD4", icon: "globe.europe.africa"), // Debug: Alternative name
         SubjectSuggestion(name: "Politik", colorHex: "2980B9", icon: "flag.fill"),
         SubjectSuggestion(name: "Wirtschaft", colorHex: "F39C12", icon: "chart.bar.fill"),
         SubjectSuggestion(name: "WiPo", colorHex: "2980B9", icon: "chart.bar.fill"),
-        SubjectSuggestion(name: "Religion", colorHex: "E91E63", icon: "heart.fill"),
-        SubjectSuggestion(name: "Ethik", colorHex: "95A5A6", icon: "brain.fill"),
-        SubjectSuggestion(name: "Philosophie", colorHex: "8E44AD", icon: "brain.fill"),
-        SubjectSuggestion(name: "Kunst", colorHex: "E74C3C", icon: "paintbrush.fill"),
-        SubjectSuggestion(name: "Musik", colorHex: "8E44AD", icon: "music.note"),
-        SubjectSuggestion(name: "Sport", colorHex: "E74C3C", icon: "figure.run"),
-        SubjectSuggestion(name: "Informatik", colorHex: "2980B9", icon: "laptopcomputer"),
-        SubjectSuggestion(name: "Latein", colorHex: "D4AF37", icon: "book.closed.fill")
+        SubjectSuggestion(name: "Ethik", colorHex: "95A5A6", icon: "brain.fill")
     ]
     
     var body: some View {
@@ -121,6 +214,12 @@ struct AddSubjectView: View {
         Section("Fachname") {
             TextField("z.B. Mathematik", text: $subjectName)
                 .autocorrectionDisabled()
+                .onChange(of: subjectName) { _, newValue in
+                    // Debug: Reset custom grade types when user manually types (unless it matches a suggestion exactly)
+                    if !subjectSuggestions.contains(where: { $0.name == newValue }) {
+                        selectedCustomGradeTypes = nil
+                    }
+                }
             
             // Debug: Show error message if duplicate name exists
             if isDuplicateName {
@@ -187,12 +286,13 @@ struct AddSubjectView: View {
         }
     }
     
-    // Debug: Apply suggestion with color and icon
+    // Debug: Apply suggestion with color, icon, and custom grade types
     private func applySuggestion(_ suggestion: SubjectSuggestion) {
         withAnimation(.easeInOut(duration: 0.3)) {
             subjectName = suggestion.name
             selectedColorHex = suggestion.colorHex
             selectedIcon = suggestion.icon
+            selectedCustomGradeTypes = suggestion.customGradeTypes
         }
     }
     
@@ -245,28 +345,101 @@ struct AddSubjectView: View {
         }
     }
     
-    // Debug: Preview of the subject appearance
+    // Debug: Preview of the subject appearance with detailed grade type weightings
     private var previewSection: some View {
         Section("Vorschau") {
-            HStack {
-                Image(systemName: selectedIcon)
-                    .font(.title2)
-                    .foregroundColor(Color(hex: selectedColorHex))
-                    .frame(width: 40, height: 40)
-                    .background(Color(hex: selectedColorHex).opacity(0.2))
-                    .cornerRadius(8)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(subjectName.isEmpty ? "Fachname" : subjectName)
-                        .font(.headline)
-                        .foregroundColor(subjectName.isEmpty ? .secondary : .primary)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: selectedIcon)
+                        .font(.title2)
+                        .foregroundColor(Color(hex: selectedColorHex))
+                        .frame(width: 40, height: 40)
+                        .background(Color(hex: selectedColorHex).opacity(0.2))
+                        .cornerRadius(8)
                     
-                    Text("So wird dein Fach angezeigt")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(subjectName.isEmpty ? "Fachname" : subjectName)
+                            .font(.headline)
+                            .foregroundColor(subjectName.isEmpty ? .secondary : .primary)
+                        
+                        Text("Notentypen:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
                 }
                 
-                Spacer()
+                // Debug: Show detailed grade types with individual weightings
+                if let customGradeTypes = selectedCustomGradeTypes {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(customGradeTypes, id: \.name) { gradeType in
+                            HStack {
+                                Image(systemName: gradeType.icon)
+                                    .foregroundColor(.blue)
+                                    .font(.caption)
+                                    .frame(width: 20)
+                                
+                                Text(gradeType.name)
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                                
+                                Spacer()
+                                
+                                Text("\(gradeType.weight)%")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(Color.blue.opacity(0.05))
+                    .cornerRadius(6)
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Image(systemName: "pencil")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                                .frame(width: 20)
+                            
+                            Text("Schriftlich")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                            
+                            Text("40%")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        HStack {
+                            Image(systemName: "bubble.fill")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                                .frame(width: 20)
+                            
+                            Text("Mündlich")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                            
+                            Text("60%")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(Color.secondary.opacity(0.05))
+                    .cornerRadius(6)
+                }
             }
             .padding(.vertical, 8)
         }
@@ -287,12 +460,19 @@ struct AddSubjectView: View {
             return
         }
         
-        print("Debug: Creating new subject '\(trimmedName)' with color '\(selectedColorHex)' and icon '\(selectedIcon)'")
+        // Debug: Convert custom grade types if available
+        let customGradeTypes: [(name: String, weight: Int, icon: String)]? = selectedCustomGradeTypes?.map { gradeType in
+            (name: gradeType.name, weight: gradeType.weight, icon: gradeType.icon)
+        }
+        
+        let typeDescription = customGradeTypes != nil ? "with custom grade types" : "with default grade types"
+        print("Debug: Creating new subject '\(trimmedName)' \(typeDescription)")
         
         DataManager.createSubject(
             name: trimmedName,
             colorHex: selectedColorHex,
             icon: selectedIcon,
+            customGradeTypes: customGradeTypes,
             in: modelContext
         )
         

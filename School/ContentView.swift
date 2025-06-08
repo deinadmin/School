@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var selectedSchoolYear: SchoolYear = SchoolYear.current
     @State private var selectedSemester: Semester = Semester.first
     @State private var showingAddSubject = false
+    @State private var showingQuickGradeAdd = false
     
     // Debug: Query all subjects (subjects are independent of school year/semester)
     @Query(sort: \Subject.name) private var allSubjects: [Subject]
@@ -20,46 +21,45 @@ struct ContentView: View {
     // Debug: UserDefaults keys for persisting current selection
     private let selectedSchoolYearKey = "selectedSchoolYear"
     private let selectedSemesterKey = "selectedSemester"
-
+    
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    CardBasedSchoolPicker(selectedSchoolYear: $selectedSchoolYear, selectedSemester: $selectedSemester)
-                    
-                    // Debug: Subjects section
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("Fächer")
-                                .font(.title2)
-                                .bold()
-                            Spacer()
-                            // Rule(s) applied: General Coding (simple solution), Debug logs & comments, SwiftUI best practices
-
-                            // Debug: AddSubject button for adding a new subject
-                            Button {
-                                // Debug log: User tapped AddSubject button
-                                print("AddSubject button tapped")
-                                showingAddSubject = true
-                            } label: {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.accentColor)
-                                        .frame(width: 30, height: 30)
-                                    Image(systemName: "plus")
-                                        .foregroundColor(.white)
+            ZStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {                                           
+                        // Debug: Subjects list moved out of header section
+                        if allSubjects.isEmpty {
+                            VStack(spacing: 16) {
+                                // Debug: Icon for empty state
+                                Image(systemName: "book.closed")
+                                    .font(.system(size: 48))
+                                    .foregroundColor(.secondary)
+                                
+                                VStack(spacing: 8) {
+                                    Text("Keine Fächer vorhanden")
+                                        .font(.headline)
                                         .bold()
+                                        .foregroundColor(.primary)
+                                    
+                                    Text("Erstelle dein erstes Fach, indem du unten auf den Button tippst.")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                        .multilineTextAlignment(.center)
                                 }
                             }
-                            .buttonStyle(.scalable)
-                        }
-                        
-                        if allSubjects.isEmpty {
-                            Text("Keine Fächer vorhanden")
-                                .foregroundColor(.secondary)
-                                .padding(.vertical)
+                            .frame(maxWidth: .infinity)
+                            .padding(24)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(.thinMaterial)
+                                    .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Color(.systemGray5), lineWidth: 1)
+                            )
                         } else {
-                            LazyVStack(spacing: 8) {
+                            LazyVStack(spacing: 12) {
                                 ForEach(allSubjects, id: \.name) { subject in
                                     NavigationLink(destination: SubjectDetailView(
                                         subject: subject,
@@ -76,16 +76,72 @@ struct ContentView: View {
                                 }
                             }
                         }
+                        
+                        Image("HomeImageLight")
+                            .resizable()
+                            .scaledToFit()
+                            .padding(.bottom, 145)
                     }
-                    .padding()
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(12)
+                    .padding(.horizontal)
+                }
+                
+                VStack(alignment: .leading) {
+                    Spacer()
+                    CardBasedSchoolPicker(selectedSchoolYear: $selectedSchoolYear, selectedSemester: $selectedSemester)
+                    HStack {
+                        Button(action: {
+                            showingAddSubject = true
+                        }, label: {
+                            HStack {
+                                Spacer()
+                                Image(systemName: "plus")
+                                    .foregroundColor(.white)
+                                    .bold()
+                                Text("Fach")
+                                    .foregroundColor(.white)
+                                    .bold()
+                                    Spacer()
+                            }
+                            .padding()
+                            .background(Color.accentColor)
+                            .cornerRadius(16)
+                        })
+                        .buttonStyle(.scalable)
+
+                        if !allSubjects.isEmpty {
+                            Button(action: {
+                                showingQuickGradeAdd = true
+                            }, label: {
+                                HStack {
+                                    Spacer()
+                                    Image(systemName: "plus")
+                                        .foregroundColor(.white)
+                                        .bold()
+                                    Text("Note")
+                                        .foregroundColor(.white)
+                                        .bold()
+                                    Spacer()
+                                }
+                                .padding()
+                                .background(Color.accentColor)
+                                .cornerRadius(16)
+                            })
+                            .buttonStyle(.scalable)
+                        }
+                    }
                 }
                 .padding(.horizontal)
+
             }
-            .navigationTitle("School")
+            .navigationTitle("Fächer")
             .sheet(isPresented: $showingAddSubject) {
                 AddSubjectView()
+            }
+            .sheet(isPresented: $showingQuickGradeAdd) {
+                QuickGradeAddView(
+                    selectedSchoolYear: selectedSchoolYear,
+                    selectedSemester: selectedSemester
+                )
             }
             .onAppear {
                 loadSelectedPeriod()
@@ -134,7 +190,7 @@ struct ContentView: View {
         UserDefaults.standard.setStruct(semester, forKey: selectedSemesterKey)
         print("Debug: Saved semester selection: \(semester.displayName)")
     }
-
+    
 }
 
 // Debug: Subject row view showing grades for selected school year/semester
@@ -195,8 +251,15 @@ struct SubjectRowView: View {
                 .font(.caption)
         }
         .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(8)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.systemBackground))
+                .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(.systemGray5), lineWidth: 1)
+        )
         .contextMenu {
             Button(role: .destructive) {
                 showingDeleteAlert = true
@@ -213,16 +276,18 @@ struct SubjectRowView: View {
             Text("Das Fach \"\(subject.name)\" und alle zugehörigen Noten werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.")
         }
     }
-
     
-    // Debug: Color coding for grades (German system: 0.7 = best, 6.0 = worst)
+    
+    // Debug: Color coding for grades with unique colors per grade range (German system: 0.7 = best, 6.0 = worst)
     private func gradeColor(for grade: Double) -> Color {
         switch grade {
-        case 0.0..<2.0: return .green
-        case 2.0..<3.0: return .blue
-        case 3.0..<4.0: return .orange
-        case 4.0..<5.0: return .red
-        default: return .red
+        case 0.7..<1.7: return .green    // Debug: Grade 1 range
+        case 1.7..<2.7: return .blue     // Debug: Grade 2 range
+        case 2.7..<3.7: return .cyan     // Debug: Grade 3 range
+        case 3.7..<4.7: return .orange   // Debug: Grade 4 range
+        case 4.7..<5.7: return .red      // Debug: Grade 5 range
+        case 5.7...6.0: return .pink     // Debug: Grade 6 range
+        default: return .gray
         }
     }
     

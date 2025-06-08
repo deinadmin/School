@@ -17,17 +17,17 @@ struct CardBasedSchoolPicker: View {
                 HStack(spacing: 16) {
                     // Icon
                     ZStack {
-                        Circle()
+                        RoundedRectangle(cornerRadius: 8)
                             .fill(LinearGradient(
-                                colors: [Color.blue.opacity(0.2), Color.blue.opacity(0.1)],
+                                colors: [Color.accentColor.opacity(0.2), Color.accentColor.opacity(0.2)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ))
-                            .frame(width: 44, height: 44)
+                            .frame(width: 40, height: 40)
                         
                         Image(systemName: "calendar.badge.clock")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundColor(.blue)
+                            .font(.title2)
+                            .foregroundColor(.accentColor)
                     }
                     
                     // Text
@@ -116,19 +116,20 @@ struct CardBasedSchoolPicker: View {
                             }
                         }
                         .padding(.horizontal)
+                        .padding(.bottom)
                     }
                     
-                    Spacer(minLength: 8)
                 }
+                .blur(radius: isExpanded ? 0 : 40)
                 .transition(.asymmetric(
-                    insertion: .move(edge: .top).combined(with: .opacity),
-                    removal: .move(edge: .top).combined(with: .opacity)
+                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                    removal: .move(edge: .bottom).combined(with: .opacity)
                 ))
             }
         }
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.systemBackground))
+                .fill(.thinMaterial)
                 .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
         )
         .overlay(

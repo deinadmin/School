@@ -8,6 +8,7 @@ alwaysApply: true
 - Always add debug logs & comments in the code for easier debug & readability
 - Every time you choose to apply a rule(s), explicitly state the rule(s) in the output. You can abbreviate the rule description to a single word or phrase
 - Do not make an changes, until you have 95% confidence that you know what to build. Ask me follow up questions until you have that confidence.
+- When you're done with your code, don't try to build the project via Terminal. I will always build the app myself manually.
 
 # Project structure
 
