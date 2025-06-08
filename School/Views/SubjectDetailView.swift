@@ -59,6 +59,7 @@ struct SubjectDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true) // Debug: Hide default back button to use custom colored one
             .accentColor(Color(hex: subject.colorHex)) // Debug: Use subject color as accent color for entire view and all sheets
+            .interactiveDismissDisabled(false)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: {
@@ -148,8 +149,15 @@ struct SubjectDetailView: View {
             Spacer()
         }
         .padding()
-        .background(.ultraThinMaterial)
-        .cornerRadius(12)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.thinMaterial)
+                .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(.systemGray5), lineWidth: 1)
+        )
     }
     
     // Debug: Statistics overview
@@ -313,15 +321,22 @@ struct SubjectDetailView: View {
                     .padding(.vertical, 20)
             } else {
                 LazyVStack(spacing: 8) {
-                    ForEach(gradesForType, id: \.self) { grade in
+                    ForEach(gradesForType, id: \.persistentModelID) { grade in
                         GradeRowView(grade: grade)
                     }
                 }
             }
         }
         .padding()
-        .background(.ultraThinMaterial)
-        .cornerRadius(10)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.thinMaterial)
+                .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(.systemGray5), lineWidth: 1)
+        )
     }
     
     // Debug: Warning view when grade type weights don't total 100%
@@ -358,9 +373,9 @@ struct SubjectDetailView: View {
         }
         .padding()
         .background(.orange.opacity(0.1))
-        .cornerRadius(10)
+        .cornerRadius(16)
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: 16)
                 .stroke(.orange.opacity(0.3), lineWidth: 1)
         )
     }
@@ -389,8 +404,15 @@ struct SubjectDetailView: View {
         }
         .padding(.vertical, 40)
         .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial)
-        .cornerRadius(10)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.thinMaterial)
+                .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(.systemGray5), lineWidth: 1)
+        )
     }
     
     // Debug: Delete grade type and all its grades
@@ -532,8 +554,15 @@ struct FixWeightsView: View {
                 Spacer()
             }
             .padding()
-            .background(.ultraThinMaterial)
-            .cornerRadius(12)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.thinMaterial)
+                    .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color(.systemGray5), lineWidth: 1)
+            )
             .padding(.horizontal)
             
             if totalWeight != 100 {
@@ -596,8 +625,15 @@ struct FixWeightsView: View {
             }
         }
         .padding()
-        .background(.ultraThinMaterial)
-        .cornerRadius(12)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.thinMaterial)
+                .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(.systemGray5), lineWidth: 1)
+        )
     }
     
     // Debug: Save the updated weights to the model
@@ -637,8 +673,15 @@ struct StatisticCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(.ultraThinMaterial)
-        .cornerRadius(10)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.thinMaterial)
+                .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(.systemGray5), lineWidth: 1)
+        )
     }
 }
 
@@ -677,9 +720,15 @@ struct GradeRowView: View {
             .buttonStyle(.borderless)
         }
         .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(10)
-        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.systemBackground))
+                .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(.systemGray5), lineWidth: 1)
+        )
         .alert("Note löschen?", isPresented: $showingDeleteAlert) {
             Button("Löschen", role: .destructive) {
                 DataManager.deleteGrade(grade, from: modelContext)

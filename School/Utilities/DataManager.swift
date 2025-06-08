@@ -101,7 +101,9 @@ class DataManager {
         do {
             let allGradeTypes = try context.fetch(descriptor)
             return allGradeTypes.filter { gradeType in
-                gradeType.subject?.name == subject.name
+                // Debug: Use safer comparison to avoid accessing invalidated objects
+                guard let gradeTypeSubject = gradeType.subject else { return false }
+                return gradeTypeSubject.persistentModelID == subject.persistentModelID
             }
         } catch {
             print("Debug: Error fetching grade types for subject '\(subject.name)': \(error)")
@@ -167,7 +169,8 @@ class DataManager {
             let allGrades = try context.fetch(descriptor)
             // Debug: Filter by semester and subject in memory to avoid SwiftData predicate issues
             return allGrades.filter { grade in
-                grade.semester == semester && grade.subject?.name == subjectName
+                guard let gradeSubject = grade.subject else { return false }
+                return grade.semester == semester && gradeSubject.persistentModelID == subject.persistentModelID
             }
         } catch {
             print("Debug: Error fetching grades: \(error)")
@@ -249,6 +252,28 @@ class DataManager {
         return average
     }
     
+    /// Calculate overall weighted average from a collection of grades across all subjects
+    /// Debug: This calculates a simple average across all grades, weighted by their individual grade type weights
+    static func calculateOverallWeightedAverage(from grades: [Grade]) -> Double? {
+        guard !grades.isEmpty else { return nil }
+        
+        let totalWeightedPoints = grades.reduce(0.0) { total, grade in
+            let weight = grade.gradeType?.weight ?? 0
+            return total + (grade.value * Double(weight))
+        }
+        
+        let totalWeight = grades.reduce(0) { total, grade in
+            let weight = grade.gradeType?.weight ?? 0
+            return total + weight
+        }
+        
+        guard totalWeight > 0 else { return nil }
+        
+        let average = totalWeightedPoints / Double(totalWeight)
+        print("Debug: Calculated overall weighted average from \(grades.count) grades: \(average)")
+        return average
+    }
+    
     /// Get subjects that have grades in a specific school year/semester
     static func getSubjectsWithGrades(for schoolYear: SchoolYear, semester: Semester, from context: ModelContext) -> [Subject] {
         let grades = getGrades(for: schoolYear, semester: semester, from: context)
@@ -261,7 +286,12 @@ class DataManager {
     /// Get grades for a specific grade type within a subject/period
     static func getGrades(for subject: Subject, gradeType: GradeType, schoolYear: SchoolYear, semester: Semester, from context: ModelContext) -> [Grade] {
         let allGrades = getGrades(for: subject, schoolYear: schoolYear, semester: semester, from: context)
-        return allGrades.filter { $0.gradeType?.name == gradeType.name && $0.gradeType?.subject?.name == subject.name }
+        return allGrades.filter { grade in
+            guard let gradeGradeType = grade.gradeType,
+                  let gradeTypeSubject = gradeGradeType.subject else { return false }
+            return gradeGradeType.persistentModelID == gradeType.persistentModelID && 
+                   gradeTypeSubject.persistentModelID == subject.persistentModelID
+        }
     }
     
     /// Delete all grades of a specific type for a subject in specific period

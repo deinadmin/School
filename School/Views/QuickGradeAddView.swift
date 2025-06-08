@@ -22,7 +22,7 @@ struct QuickGradeAddView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     LazyVStack(spacing: 12) {
-                        ForEach(allSubjects, id: \.name) { subject in
+                        ForEach(allSubjects, id: \.persistentModelID) { subject in
                             NavigationLink(destination: QuickGradeTypeSelectionView(
                                 subject: subject,
                                 selectedSchoolYear: selectedSchoolYear,

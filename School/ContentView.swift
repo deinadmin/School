@@ -22,11 +22,54 @@ struct ContentView: View {
     private let selectedSchoolYearKey = "selectedSchoolYear"
     private let selectedSemesterKey = "selectedSemester"
     
+    // Debug: Calculate overall average for speech bubble text
+    private var overallAverage: Double? {
+        var allGrades: [Grade] = []
+        
+        for subject in allSubjects {
+            let grades = DataManager.getGrades(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+            if !grades.isEmpty {
+                allGrades.append(contentsOf: grades)
+            }
+        }
+        
+        return DataManager.calculateOverallWeightedAverage(from: allGrades)
+    }
+    
+    // Debug: Dynamic speech bubble text based on overall performance
+    private var speechBubbleText: String {
+        guard let average = overallAverage else {
+            return "Viel Erfolg und Gute Noten!" // Debug: Default text when no grades
+        }
+        
+        switch average {
+        case 0.7..<2.5:
+            return "Sehr gut, weiter so!"
+        case 2.5..<3.5:
+            return "Nicht schlecht, aber noch Luft nach oben!"
+        case 3.5..<4.5:
+            return "Gib ein bisschen mehr Gas!"
+        case 4.5...6.0:
+            return "Das kannst du eigentlich besser!"
+        default:
+            return "Viel Erfolg und Gute Noten!"
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             ZStack {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {                                           
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Debug: Statistics card at the top
+                        if !allSubjects.isEmpty {
+                            StatisticsCardView(
+                                subjects: allSubjects,
+                                selectedSchoolYear: selectedSchoolYear,
+                                selectedSemester: selectedSemester
+                            )
+                        }
+                        
                         // Debug: Subjects list moved out of header section
                         if allSubjects.isEmpty {
                             VStack(spacing: 16) {
@@ -60,7 +103,7 @@ struct ContentView: View {
                             )
                         } else {
                             LazyVStack(spacing: 12) {
-                                ForEach(allSubjects, id: \.name) { subject in
+                                ForEach(allSubjects, id: \.persistentModelID) { subject in
                                     NavigationLink(destination: SubjectDetailView(
                                         subject: subject,
                                         selectedSchoolYear: selectedSchoolYear,
@@ -77,10 +120,36 @@ struct ContentView: View {
                             }
                         }
                         
-                        Image("HomeImageLight")
-                            .resizable()
-                            .scaledToFit()
-                            .padding(.bottom, 145)
+                        HStack(alignment: .top, spacing: 16) {
+                            // Debug: Speech bubble positioned at character's mouth height
+                            VStack {
+                                Spacer()
+                                    .frame(height: 40) // Debug: Position bubble at mouth height (roughly 1/3 from top)
+                                
+                                Text(speechBubbleText)
+                                    .font(.title3)
+                                    .foregroundColor(.primary)
+                                    .padding()
+                                    .background(Color(.systemBackground))
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .fill(Color(.systemBackground))
+                                            .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(Color(.systemGray5), lineWidth: 1)
+                                    )
+                                
+                                Spacer()
+                            }
+
+                            Image("StudentCharacter")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(height: 250)
+                            
+                        }
                     }
                     .padding(.horizontal)
                 }
@@ -190,7 +259,131 @@ struct ContentView: View {
         UserDefaults.standard.setStruct(semester, forKey: selectedSemesterKey)
         print("Debug: Saved semester selection: \(semester.displayName)")
     }
+}
+
+// Debug: Statistics card showing overall performance metrics
+struct StatisticsCardView: View {
+    let subjects: [Subject]
+    let selectedSchoolYear: SchoolYear
+    let selectedSemester: Semester
+    @Environment(\.modelContext) private var modelContext
     
+    // Debug: Calculate overall statistics for the selected period
+    private var overallStatistics: (average: Double?, totalGrades: Int, subjectsWithGrades: Int) {
+        var allGrades: [Grade] = []
+        var subjectsWithGrades = 0
+        
+        for subject in subjects {
+            let grades = DataManager.getGrades(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+            if !grades.isEmpty {
+                allGrades.append(contentsOf: grades)
+                subjectsWithGrades += 1
+            }
+        }
+        
+        let average = DataManager.calculateOverallWeightedAverage(from: allGrades)
+        return (average, allGrades.count, subjectsWithGrades)
+    }
+    
+    var body: some View {
+        HStack {
+            // Debug: Statistics icon
+            Image(systemName: "chart.bar.fill")
+                .foregroundColor(.accentColor)
+                .font(.title)
+                .frame(width: 60, height: 60)
+                .background(Color.accentColor.opacity(0.2))
+                .cornerRadius(8)
+            
+            VStack(alignment: .leading) {
+                Text("Zeugnisschnitt")
+                    .font(.title2)
+                    .bold()
+                Text("\(selectedSchoolYear.displayName) - \(selectedSemester.displayName)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            VStack(alignment: .trailing, spacing: 4) {
+                // Debug: Overall average
+                if let average = overallStatistics.average {
+                    Text("⌀ \(gradeDisplayText(for: average))")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(gradeColor(for: average))
+                } else {
+                    Text("Keine Noten")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                HStack {
+                    // Debug: Number of subjects with grades
+                    if overallStatistics.subjectsWithGrades > 0 {
+                        Text("\(overallStatistics.subjectsWithGrades) Fächer")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    // Debug: Total grades count
+                    if overallStatistics.totalGrades > 0 {
+                        Text("\(overallStatistics.totalGrades) Noten")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.systemBackground))
+                .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(.systemGray5), lineWidth: 1)
+        )
+    }
+    
+    // Debug: Color coding for grades with unique colors per grade range (German system: 0.7 = best, 6.0 = worst)
+    private func gradeColor(for grade: Double) -> Color {
+        switch grade {
+        case 0.7..<1.7: return .green    // Debug: Grade 1 range
+        case 1.7..<2.7: return .blue     // Debug: Grade 2 range
+        case 2.7..<3.7: return .cyan     // Debug: Grade 3 range
+        case 3.7..<4.7: return .orange   // Debug: Grade 4 range
+        case 4.7..<5.7: return .red      // Debug: Grade 5 range
+        case 5.7...6.0: return .pink     // Debug: Grade 6 range
+        default: return .gray
+        }
+    }
+    
+    // Debug: Convert decimal grade to German plus/minus notation (+ = better/lower, - = worse/higher)
+    private func gradeDisplayText(for value: Double) -> String {
+        switch value {
+        case 0.7: return "1+"
+        case 1.0: return "1"
+        case 1.3: return "1-"
+        case 1.7: return "2+"
+        case 2.0: return "2"
+        case 2.3: return "2-"
+        case 2.7: return "3+"
+        case 3.0: return "3"
+        case 3.3: return "3-"
+        case 3.7: return "4+"
+        case 4.0: return "4"
+        case 4.3: return "4-"
+        case 4.7: return "5+"
+        case 5.0: return "5"
+        case 5.3: return "5-"
+        case 5.7: return "6+"
+        case 6.0: return "6"
+        default: return String(format: "%.1f", value)
+        }
+    }
 }
 
 // Debug: Subject row view showing grades for selected school year/semester
