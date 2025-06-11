@@ -216,9 +216,14 @@ struct QuickGradeValueSelectionView: View {
                             gradeButton(for: gradeItem, rowColor: row.2)
                         }
                         
-                        if row.1.count < 3 {
-                            Spacer()
-                                .frame(maxWidth: .infinity)
+                        // Debug: Add empty space for rows with fewer items
+                        let itemsInRow = row.1.count
+                        let maxItemsPerRow = selectedSchoolYear.gradingSystem == .traditional ? 3 : 4
+                        if itemsInRow < maxItemsPerRow {
+                            ForEach(0..<(maxItemsPerRow - itemsInRow), id: \.self) { _ in
+                                Spacer()
+                                    .frame(maxWidth: .infinity)
+                            }
                         }
                     }
                 }
@@ -282,14 +287,7 @@ struct QuickGradeValueSelectionView: View {
     }
     
     private var gradeRows: [(Int, [(value: Double, display: String)], Color)] {
-        [
-            (1, [(0.7, "1+"), (1.0, "1"), (1.3, "1-")], .green),
-            (2, [(1.7, "2+"), (2.0, "2"), (2.3, "2-")], .blue),
-            (3, [(2.7, "3+"), (3.0, "3"), (3.3, "3-")], .cyan),
-            (4, [(3.7, "4+"), (4.0, "4"), (4.3, "4-")], .orange),
-            (5, [(4.7, "5+"), (5.0, "5"), (5.3, "5-")], .red),
-            (6, [(5.7, "6+"), (6.0, "6")], .pink)
-        ]
+        return GradingSystemHelpers.getGradeRows(for: selectedSchoolYear.gradingSystem)
     }
     
     private func saveGrade() {
@@ -348,10 +346,10 @@ struct QuickGradeSubjectRowView: View {
                     .foregroundColor(.secondary)
                 
                 if let average = averageGrade {
-                    Text("⌀ \(gradeDisplayText(for: average))")
+                    Text("⌀ \(GradingSystemHelpers.gradeDisplayText(for: average, system: selectedSchoolYear.gradingSystem))")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(gradeColor(for: average))
+                        .foregroundColor(GradingSystemHelpers.gradeColor(for: average, system: selectedSchoolYear.gradingSystem))
                 }
             }
             
@@ -369,41 +367,6 @@ struct QuickGradeSubjectRowView: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(Color(.systemGray5), lineWidth: 1)
         )
-    }
-    
-    private func gradeColor(for grade: Double) -> Color {
-        switch grade {
-        case 0.7..<1.7: return .green
-        case 1.7..<2.7: return .blue
-        case 2.7..<3.7: return .cyan
-        case 3.7..<4.7: return .orange
-        case 4.7..<5.7: return .red
-        case 5.7...6.0: return .pink
-        default: return .gray
-        }
-    }
-    
-    private func gradeDisplayText(for value: Double) -> String {
-        switch value {
-        case 0.7: return "1+"
-        case 1.0: return "1"
-        case 1.3: return "1-"
-        case 1.7: return "2+"
-        case 2.0: return "2"
-        case 2.3: return "2-"
-        case 2.7: return "3+"
-        case 3.0: return "3"
-        case 3.3: return "3-"
-        case 3.7: return "4+"
-        case 4.0: return "4"
-        case 4.3: return "4-"
-        case 4.7: return "5+"
-        case 5.0: return "5"
-        case 5.3: return "5-"
-        case 5.7: return "6+"
-        case 6.0: return "6"
-        default: return String(format: "%.1f", value)
-        }
     }
 }
 

@@ -14,7 +14,6 @@ struct ContentView: View {
     @State private var selectedSemester: Semester = Semester.first
     @State private var showingAddSubject = false
     @State private var showingQuickGradeAdd = false
-    
     // Debug: Query all subjects (subjects are independent of school year/semester)
     @Query(sort: \Subject.name) private var allSubjects: [Subject]
     
@@ -38,22 +37,7 @@ struct ContentView: View {
     
     // Debug: Dynamic speech bubble text based on overall performance
     private var speechBubbleText: String {
-        guard let average = overallAverage else {
-            return "Viel Erfolg und Gute Noten!" // Debug: Default text when no grades
-        }
-        
-        switch average {
-        case 0.7..<2.5:
-            return "Sehr gut, weiter so!"
-        case 2.5..<3.5:
-            return "Nicht schlecht, aber noch Luft nach oben!"
-        case 3.5..<4.5:
-            return "Gib ein bisschen mehr Gas!"
-        case 4.5...6.0:
-            return "Das kannst du eigentlich besser!"
-        default:
-            return "Viel Erfolg und Gute Noten!"
-        }
+        return GradingSystemHelpers.getPerformanceMessage(for: overallAverage, system: selectedSchoolYear.gradingSystem)
     }
     
     var body: some View {
@@ -150,6 +134,7 @@ struct ContentView: View {
                                 .frame(height: 250)
                             
                         }
+                        .padding(.bottom, 60)
                     }
                     .padding(.horizontal)
                 }
@@ -202,7 +187,7 @@ struct ContentView: View {
                 .padding(.horizontal)
 
             }
-            .navigationTitle("Fächer")
+            .navigationTitle("School")
             .sheet(isPresented: $showingAddSubject) {
                 AddSubjectView()
             }
@@ -309,10 +294,10 @@ struct StatisticsCardView: View {
             VStack(alignment: .trailing, spacing: 4) {
                 // Debug: Overall average
                 if let average = overallStatistics.average {
-                    Text("⌀ \(gradeDisplayText(for: average))")
+                    Text("⌀ \(GradingSystemHelpers.gradeDisplayText(for: average, system: selectedSchoolYear.gradingSystem))")
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(gradeColor(for: average))
+                        .foregroundColor(GradingSystemHelpers.gradeColor(for: average, system: selectedSchoolYear.gradingSystem))
                 } else {
                     Text("Keine Noten")
                         .font(.caption)
@@ -346,43 +331,6 @@ struct StatisticsCardView: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(Color(.systemGray5), lineWidth: 1)
         )
-    }
-    
-    // Debug: Color coding for grades with unique colors per grade range (German system: 0.7 = best, 6.0 = worst)
-    private func gradeColor(for grade: Double) -> Color {
-        switch grade {
-        case 0.7..<1.7: return .green    // Debug: Grade 1 range
-        case 1.7..<2.7: return .blue     // Debug: Grade 2 range
-        case 2.7..<3.7: return .cyan     // Debug: Grade 3 range
-        case 3.7..<4.7: return .orange   // Debug: Grade 4 range
-        case 4.7..<5.7: return .red      // Debug: Grade 5 range
-        case 5.7...6.0: return .pink     // Debug: Grade 6 range
-        default: return .gray
-        }
-    }
-    
-    // Debug: Convert decimal grade to German plus/minus notation (+ = better/lower, - = worse/higher)
-    private func gradeDisplayText(for value: Double) -> String {
-        switch value {
-        case 0.7: return "1+"
-        case 1.0: return "1"
-        case 1.3: return "1-"
-        case 1.7: return "2+"
-        case 2.0: return "2"
-        case 2.3: return "2-"
-        case 2.7: return "3+"
-        case 3.0: return "3"
-        case 3.3: return "3-"
-        case 3.7: return "4+"
-        case 4.0: return "4"
-        case 4.3: return "4-"
-        case 4.7: return "5+"
-        case 5.0: return "5"
-        case 5.3: return "5-"
-        case 5.7: return "6+"
-        case 6.0: return "6"
-        default: return String(format: "%.1f", value)
-        }
     }
 }
 
@@ -432,10 +380,10 @@ struct SubjectRowView: View {
                 
                 // Debug: Show average if available
                 if let average = averageGrade {
-                    Text("⌀ \(gradeDisplayText(for: average))")
+                    Text("⌀ \(GradingSystemHelpers.gradeDisplayText(for: average, system: selectedSchoolYear.gradingSystem))")
                         .font(.caption)
                         .fontWeight(.medium)
-                        .foregroundColor(gradeColor(for: average))
+                        .foregroundColor(GradingSystemHelpers.gradeColor(for: average, system: selectedSchoolYear.gradingSystem))
                 }
             }
             
@@ -467,44 +415,6 @@ struct SubjectRowView: View {
             Button("Abbrechen", role: .cancel) { }
         } message: {
             Text("Das Fach \"\(subject.name)\" und alle zugehörigen Noten werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.")
-        }
-    }
-    
-    
-    // Debug: Color coding for grades with unique colors per grade range (German system: 0.7 = best, 6.0 = worst)
-    private func gradeColor(for grade: Double) -> Color {
-        switch grade {
-        case 0.7..<1.7: return .green    // Debug: Grade 1 range
-        case 1.7..<2.7: return .blue     // Debug: Grade 2 range
-        case 2.7..<3.7: return .cyan     // Debug: Grade 3 range
-        case 3.7..<4.7: return .orange   // Debug: Grade 4 range
-        case 4.7..<5.7: return .red      // Debug: Grade 5 range
-        case 5.7...6.0: return .pink     // Debug: Grade 6 range
-        default: return .gray
-        }
-    }
-    
-    // Debug: Convert decimal grade to German plus/minus notation (+ = better/lower, - = worse/higher)
-    private func gradeDisplayText(for value: Double) -> String {
-        switch value {
-        case 0.7: return "1+"
-        case 1.0: return "1"
-        case 1.3: return "1-"
-        case 1.7: return "2+"
-        case 2.0: return "2"
-        case 2.3: return "2-"
-        case 2.7: return "3+"
-        case 3.0: return "3"
-        case 3.3: return "3-"
-        case 3.7: return "4+"
-        case 4.0: return "4"
-        case 4.3: return "4-"
-        case 4.7: return "5+"
-        case 5.0: return "5"
-        case 5.3: return "5-"
-        case 5.7: return "6+"
-        case 6.0: return "6"
-        default: return String(format: "%.1f", value)
         }
     }
 }

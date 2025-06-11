@@ -309,4 +309,71 @@ class DataManager {
             print("Debug: Error deleting grades of type: \(error)")
         }
     }
-} 
+    
+    // MARK: - Grading System Conversion
+    
+    /// Convert all grades for a school year to a new grading system
+    /// Debug: Used when user changes grading system - converts all existing grades
+    static func convertGradingSystem(for schoolYear: SchoolYear, to newSystem: GradingSystem, from context: ModelContext) -> (success: Bool, convertedCount: Int, errorMessage: String?) {
+        let grades = getAllGrades(for: schoolYear, from: context)
+        
+        guard !grades.isEmpty else {
+            print("Debug: No grades to convert for school year \(schoolYear.displayName)")
+            return (true, 0, nil)
+        }
+        
+        let oldSystem = schoolYear.gradingSystem
+        var convertedCount = 0
+        
+        print("Debug: Converting \(grades.count) grades from \(oldSystem.displayName) to \(newSystem.displayName)")
+        
+        for grade in grades {
+            let oldValue = grade.value
+            let newValue = GradingSystemHelpers.convertGrade(oldValue, from: oldSystem, to: newSystem)
+            
+            grade.value = newValue
+            convertedCount += 1
+            
+            print("Debug: Converted grade \(oldValue) → \(newValue)")
+        }
+        
+        do {
+            try context.save()
+            print("Debug: Successfully converted \(convertedCount) grades to \(newSystem.displayName)")
+            return (true, convertedCount, nil)
+        } catch {
+            print("Debug: Error saving converted grades: \(error)")
+            return (false, 0, "Fehler beim Speichern der konvertierten Noten: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Get all grades for a school year (both semesters)
+    /// Debug: Helper method for grade conversion
+    private static func getAllGrades(for schoolYear: SchoolYear, from context: ModelContext) -> [Grade] {
+        let descriptor = FetchDescriptor<Grade>(
+            predicate: #Predicate<Grade> { grade in
+                grade.schoolYearStartYear == schoolYear.startYear
+            }
+        )
+        
+        do {
+            return try context.fetch(descriptor)
+        } catch {
+            print("Debug: Error fetching grades for conversion: \(error)")
+            return []
+        }
+    }
+    
+    /// Check if a school year has any grades stored (for any semester)
+    /// Debug: Used to show conversion preview to user
+    static func hasGrades(for schoolYear: SchoolYear, from context: ModelContext) -> Bool {
+        let grades = getAllGrades(for: schoolYear, from: context)
+        return !grades.isEmpty
+    }
+    
+    /// Get count of grades for a specific school year (for display purposes)
+    /// Debug: Used to show user how many grades will be converted
+    static func getGradeCount(for schoolYear: SchoolYear, from context: ModelContext) -> Int {
+        return getAllGrades(for: schoolYear, from: context).count
+    }
+}

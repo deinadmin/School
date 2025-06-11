@@ -1,10 +1,17 @@
 import SwiftUI
 import Foundation
+import SwiftData
 
 struct CardBasedSchoolPicker: View {
     @Binding var selectedSchoolYear: SchoolYear
     @Binding var selectedSemester: Semester
     @State private var isExpanded = false
+    @State private var showingGradingSystemAlert = false
+    @State private var pendingGradingSystem: GradingSystem?
+    @State private var gradingSystemError: String?
+    
+    // Debug: Need ModelContext for grading system validation
+    @Environment(\.modelContext) private var modelContext
     
     var body: some View {
         VStack(spacing: 0) {
@@ -34,7 +41,7 @@ struct CardBasedSchoolPicker: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("\(selectedSchoolYear.displayName)")
                             .font(.system(size: 16, weight: .semibold))
-                        Text("\(selectedSemester.displayName)")
+                        Text("\(selectedSemester.displayName) • \(selectedSchoolYear.gradingSystem.displayName)")
                             .font(.system(size: 14))
                             .foregroundColor(.secondary)
                     }
@@ -71,21 +78,23 @@ struct CardBasedSchoolPicker: View {
                                         YearChip(
                                             year: year,
                                             isSelected: selectedSchoolYear.startYear == year.startYear,
-                                            action: { selectedSchoolYear = year }
+                                            action: { 
+                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                                    selectedSchoolYear = year
+                                                }
+                                            }
                                         )
-                                        .id(year.startYear) // Add id for scrolling
+                                        .id(year.startYear)
                                     }
                                 }
                                 .padding(.horizontal)
                             }
                             .onAppear {
-                                // Scroll to selected year when view appears
                                 withAnimation(.easeInOut(duration: 0.5)) {
                                     proxy.scrollTo(selectedSchoolYear.startYear, anchor: .center)
                                 }
                             }
                             .onChange(of: isExpanded) { _, newValue in
-                                // Scroll to selected year when picker expands
                                 if newValue {
                                     withAnimation(.easeInOut(duration: 0.5)) {
                                         proxy.scrollTo(selectedSchoolYear.startYear, anchor: .center)
@@ -93,6 +102,29 @@ struct CardBasedSchoolPicker: View {
                                 }
                             }
                         }
+                    }
+                    
+                    // Grading System Picker
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Bewertungssystem")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal)
+                        
+                        HStack(spacing: 12) {
+                            ForEach(GradingSystem.allCases, id: \.rawValue) { system in
+                                GradingSystemCard(
+                                    system: system,
+                                    isSelected: selectedSchoolYear.gradingSystem == system,
+                                    action: {
+                                        changeGradingSystem(to: system)
+                                    }
+                                )
+                            }
+                        }
+                        .padding(.horizontal)
+                        
+                        // No conversion info text needed anymore
                     }
                     
                     // Semester Picker
@@ -129,13 +161,83 @@ struct CardBasedSchoolPicker: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(.thinMaterial)
+                .fill(.regularMaterial)
                 .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
                 .stroke(Color(.systemGray5), lineWidth: 1)
         )
+        .alert("Bewertungssystem ändern?", isPresented: $showingGradingSystemAlert) {
+            Button("Konvertieren", role: .none) {
+                if let newSystem = pendingGradingSystem {
+                    applyGradingSystemChange(to: newSystem)
+                }
+            }
+            Button("Abbrechen", role: .cancel) {
+                pendingGradingSystem = nil
+                gradingSystemError = nil
+            }
+        } message: {
+            if let errorMessage = gradingSystemError {
+                Text(errorMessage)
+            } else if let newSystem = pendingGradingSystem {
+                let gradeCount = DataManager.getGradeCount(for: selectedSchoolYear, from: modelContext)
+                Text("Durch die Änderung werden \(gradeCount) Noten zu \(newSystem.displayName) konvertiert.")
+            }
+        }
+    }
+    
+    // Debug: Handle grading system change with conversion
+    private func changeGradingSystem(to newSystem: GradingSystem) {
+        // Debug: Don't do anything if already selected
+        guard selectedSchoolYear.gradingSystem != newSystem else { return }
+        
+        // Debug: Check if there are grades to convert
+        let gradeCount = DataManager.getGradeCount(for: selectedSchoolYear, from: modelContext)
+        
+        if gradeCount == 0 {
+            // Debug: No grades exist, change immediately without alert
+            applyGradingSystemChange(to: newSystem)
+        } else {
+            // Debug: Grades exist, show conversion confirmation
+            pendingGradingSystem = newSystem
+            gradingSystemError = nil
+            showingGradingSystemAlert = true
+        }
+    }
+    
+    // Debug: Apply the grading system change with grade conversion
+    private func applyGradingSystemChange(to newSystem: GradingSystem) {
+        // Debug: Perform grade conversion if there are existing grades
+        let gradeCount = DataManager.getGradeCount(for: selectedSchoolYear, from: modelContext)
+        
+        if gradeCount > 0 {
+            let conversionResult = DataManager.convertGradingSystem(for: selectedSchoolYear, to: newSystem, from: modelContext)
+            
+            if !conversionResult.success {
+                gradingSystemError = conversionResult.errorMessage
+                showingGradingSystemAlert = true
+                return
+            }
+            
+            print("Debug: Successfully converted \(conversionResult.convertedCount) grades to \(newSystem.displayName)")
+        }
+        
+        // Debug: Save the grading system change
+        UserDefaults.standard.setGradingSystem(newSystem, forSchoolYear: selectedSchoolYear.startYear)
+        
+        // Debug: Update the selected school year with the new system
+        let updatedSchoolYear = SchoolYear(startYear: selectedSchoolYear.startYear, gradingSystem: newSystem)
+        
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            selectedSchoolYear = updatedSchoolYear
+        }
+        
+        pendingGradingSystem = nil
+        gradingSystemError = nil
+        
+        print("Debug: Changed grading system for \(selectedSchoolYear.displayName) to \(newSystem.displayName)")
     }
 }
 
@@ -146,15 +248,71 @@ struct YearChip: View {
     
     var body: some View {
         Button(action: action) {
-            Text(year.displayName)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(isSelected ? .white : .primary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(
-                    Capsule()
-                        .fill(isSelected ? Color.blue : Color(.systemGray6))
-                )
+            VStack(spacing: 4) {
+                Text(year.displayName)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(isSelected ? .white : .primary)
+
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(isSelected ? Color.blue : Color(.systemGray6))
+            )
+            .overlay(
+                Capsule()
+                    .stroke(Color(.systemGray5), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.scalable)
+    }
+}
+
+struct GradingSystemCard: View {
+    let system: GradingSystem
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Image(systemName: system == .traditional ? "1.circle.fill" : "15.circle.fill")
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(isSelected ? .white : .blue)
+                
+                VStack(spacing: 2) {
+                    Text(system.displayName)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(isSelected ? .white : .primary)
+                    
+                    Text(system == .traditional ? "1+ bis 6" : "0 bis 15")
+                        .font(.system(size: 11))
+                        .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ?
+                        LinearGradient(
+                            colors: [Color.blue, Color.blue.opacity(0.8)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ) :
+                        LinearGradient(
+                            colors: [Color(.systemGray6), Color(.systemGray6)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color(.systemGray5), lineWidth: 1)
+            )
         }
         .buttonStyle(.scalable)
     }
@@ -192,6 +350,11 @@ struct SemesterCard: View {
                             endPoint: .bottomTrailing
                         )
                     )
+                    .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color(.systemGray5), lineWidth: 1)
             )
         }
         .buttonStyle(.scalable)

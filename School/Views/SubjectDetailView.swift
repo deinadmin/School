@@ -177,9 +177,9 @@ struct SubjectDetailView: View {
                 
                 StatisticCard(
                     title: "Durchschnitt",
-                    value: averageGrade != nil ? gradeDisplayText(for: averageGrade!) : "—",
+                    value: averageGrade != nil ? GradingSystemHelpers.gradeDisplayText(for: averageGrade!, system: selectedSchoolYear.gradingSystem) : "—",
                     icon: "chart.bar",
-                    color: averageGrade != nil ? gradeColor(for: averageGrade!) : .gray
+                    color: averageGrade != nil ? GradingSystemHelpers.gradeColor(for: averageGrade!, system: selectedSchoolYear.gradingSystem) : .gray
                 )
             }
         }
@@ -322,7 +322,7 @@ struct SubjectDetailView: View {
             } else {
                 LazyVStack(spacing: 8) {
                     ForEach(gradesForType, id: \.persistentModelID) { grade in
-                        GradeRowView(grade: grade)
+                        GradeRowView(grade: grade, schoolYear: selectedSchoolYear)
                     }
                 }
             }
@@ -688,6 +688,7 @@ struct StatisticCard: View {
 // Debug: Individual grade row component
 struct GradeRowView: View {
     let grade: Grade
+    let schoolYear: SchoolYear
     @Environment(\.modelContext) private var modelContext
     @State private var showingDeleteAlert = false
     
@@ -695,10 +696,10 @@ struct GradeRowView: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Text(gradeDisplayText(for: grade.value))
+                    Text(GradingSystemHelpers.gradeDisplayText(for: grade.value, system: schoolYear.gradingSystem))
                         .font(.title3)
                         .fontWeight(.bold)
-                        .foregroundColor(gradeColor(for: grade.value))
+                        .foregroundColor(GradingSystemHelpers.gradeColor(for: grade.value, system: schoolYear.gradingSystem))
                     
                     if let date = grade.date {
                         Text(date, style: .date)
@@ -736,43 +737,6 @@ struct GradeRowView: View {
             Button("Abbrechen", role: .cancel) { }
         } message: {
             Text("Diese Aktion kann nicht rückgängig gemacht werden.")
-        }
-    }
-    
-    // Debug: Color coding for grades with unique colors per grade range (German system: 0.7 = best, 6.0 = worst)
-    private func gradeColor(for grade: Double) -> Color {
-        switch grade {
-        case 0.7..<1.7: return .green    // Debug: Grade 1 range
-        case 1.7..<2.7: return .blue     // Debug: Grade 2 range
-        case 2.7..<3.7: return .cyan     // Debug: Grade 3 range
-        case 3.7..<4.7: return .orange   // Debug: Grade 4 range
-        case 4.7..<5.7: return .red      // Debug: Grade 5 range
-        case 5.7...6.0: return .pink     // Debug: Grade 6 range
-        default: return .gray
-        }
-    }
-    
-    // Debug: Convert decimal grade to German plus/minus notation (+ = better/lower, - = worse/higher)
-    private func gradeDisplayText(for value: Double) -> String {
-        switch value {
-        case 0.7: return "1+"
-        case 1.0: return "1"
-        case 1.3: return "1-"
-        case 1.7: return "2+"
-        case 2.0: return "2"
-        case 2.3: return "2-"
-        case 2.7: return "3+"
-        case 3.0: return "3"
-        case 3.3: return "3-"
-        case 3.7: return "4+"
-        case 4.0: return "4"
-        case 4.3: return "4-"
-        case 4.7: return "5+"
-        case 5.0: return "5"
-        case 5.3: return "5-"
-        case 5.7: return "6+"
-        case 6.0: return "6"
-        default: return String(format: "%.1f", value)
         }
     }
 } 

@@ -113,17 +113,21 @@ struct AddGradeView: View {
     private var gradeValueSection: some View {
         Section("Notenwert") {
             VStack(spacing: 12) {
-                // Debug: Organized grade rows (+ grade, grade, - grade)
+                // Debug: Organized grade rows based on grading system
                 ForEach(gradeRows, id: \.0) { row in
                     HStack(spacing: 12) {
                         ForEach(row.1, id: \.value) { gradeItem in
                             gradeButton(for: gradeItem, rowColor: row.2)
                         }
                         
-                        // Debug: Add empty space for last row (6+, 6, empty)
-                        if row.1.count < 3 {
-                            Spacer()
-                                .frame(maxWidth: .infinity)
+                        // Debug: Add empty space for rows with fewer items
+                        let itemsInRow = row.1.count
+                        let maxItemsPerRow = schoolYear.gradingSystem == .traditional ? 3 : 4
+                        if itemsInRow < maxItemsPerRow {
+                            ForEach(0..<(maxItemsPerRow - itemsInRow), id: \.self) { _ in
+                                Spacer()
+                                    .frame(maxWidth: .infinity)
+                            }
                         }
                     }
                 }
@@ -170,29 +174,9 @@ struct AddGradeView: View {
         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: gradeValue)
     }
     
-    // Debug: Organized grade rows with unique colors per row matching updated SubjectDetailView
+    // Debug: Get grade rows based on the school year's grading system
     private var gradeRows: [(Int, [(value: Double, display: String)], Color)] {
-        [
-            (1, [(0.7, "1+"), (1.0, "1"), (1.3, "1-")], .green),    // Debug: 0.7-1.3 = green (best)
-            (2, [(1.7, "2+"), (2.0, "2"), (2.3, "2-")], .blue),     // Debug: 1.7-2.3 = blue (good)
-            (3, [(2.7, "3+"), (3.0, "3"), (3.3, "3-")], .cyan),     // Debug: 2.7-3.3 = cyan (okay)
-            (4, [(3.7, "4+"), (4.0, "4"), (4.3, "4-")], .orange),   // Debug: 3.7-4.3 = orange (poor)
-            (5, [(4.7, "5+"), (5.0, "5"), (5.3, "5-")], .red),      // Debug: 4.7-5.3 = red (bad)
-            (6, [(5.7, "6+"), (6.0, "6")], .pink) // Debug: 5.7-6.0 = pink (worst), only 2 grades
-        ]
-    }
-    
-    // Debug: Color coding function with unique colors per grade range (German system: 0.7 = best, 6.0 = worst)
-    private func gradeColor(for grade: Double) -> Color {
-        switch grade {
-        case 0.7..<1.7: return .green    // Debug: Grade 1 range
-        case 1.7..<2.7: return .blue     // Debug: Grade 2 range
-        case 2.7..<3.7: return .cyan     // Debug: Grade 3 range
-        case 3.7..<4.7: return .orange   // Debug: Grade 4 range
-        case 4.7..<5.7: return .red      // Debug: Grade 5 range
-        case 5.7...6.0: return .pink     // Debug: Grade 6 range
-        default: return .gray
-        }
+        return GradingSystemHelpers.getGradeRows(for: schoolYear.gradingSystem)
     }
     
     // Debug: Grade type selection
@@ -231,8 +215,7 @@ struct AddGradeView: View {
     
     // Debug: Validation for save button - requires grade to be selected
     private var isValidGrade: Bool {
-        guard let value = gradeValue else { return false } // Debug: No grade selected
-        return value >= 0.7 && value <= 6.0 && !allGradeTypes.isEmpty
+        return GradingSystemHelpers.isValidGrade(gradeValue, for: schoolYear.gradingSystem) && !allGradeTypes.isEmpty
     }
     
     // Debug: Save the new grade
