@@ -40,22 +40,53 @@ struct ContentView: View {
         return GradingSystemHelpers.getPerformanceMessage(for: overallAverage, system: selectedSchoolYear.gradingSystem)
     }
     
+    // Debug: Subjects sorted by average grade (best grades first)
+    private var sortedSubjects: [Subject] {
+        return allSubjects.sorted { subject1, subject2 in
+            let average1 = DataManager.calculateWeightedAverage(for: subject1, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+            let average2 = DataManager.calculateWeightedAverage(for: subject2, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+            
+            // Debug: Handle subjects without grades (put them at the end)
+            switch (average1, average2) {
+            case (nil, nil):
+                // Debug: Both have no grades, sort alphabetically
+                return subject1.name < subject2.name
+            case (nil, _):
+                // Debug: subject1 has no grades, put it after subject2
+                return false
+            case (_, nil):
+                // Debug: subject2 has no grades, put subject1 before it
+                return true
+            case (let avg1?, let avg2?):
+                // Debug: Both have grades, sort by grade quality
+                switch selectedSchoolYear.gradingSystem {
+                case .traditional:
+                    // Debug: Traditional system (1-6): lower numbers are better
+                    return avg1 < avg2
+                case .points:
+                    // Debug: Points system (0-15): higher numbers are better
+                    return avg1 > avg2
+                }
+            }
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             ZStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         // Debug: Statistics card at the top
-                        if !allSubjects.isEmpty {
+                        if !sortedSubjects.isEmpty {
                             StatisticsCardView(
-                                subjects: allSubjects,
+                                subjects: sortedSubjects,
                                 selectedSchoolYear: selectedSchoolYear,
                                 selectedSemester: selectedSemester
                             )
                         }
                         
                         // Debug: Subjects list moved out of header section
-                        if allSubjects.isEmpty {
+                        if sortedSubjects.isEmpty {
                             VStack(spacing: 16) {
                                 // Debug: Icon for empty state
                                 Image(systemName: "book.closed")
@@ -87,7 +118,7 @@ struct ContentView: View {
                             )
                         } else {
                             LazyVStack(spacing: 12) {
-                                ForEach(allSubjects, id: \.persistentModelID) { subject in
+                                ForEach(sortedSubjects, id: \.persistentModelID) { subject in
                                     NavigationLink(destination: SubjectDetailView(
                                         subject: subject,
                                         selectedSchoolYear: selectedSchoolYear,
@@ -162,7 +193,7 @@ struct ContentView: View {
                         })
                         .buttonStyle(.scalable)
 
-                        if !allSubjects.isEmpty {
+                        if !sortedSubjects.isEmpty {
                             Button(action: {
                                 showingQuickGradeAdd = true
                             }, label: {
