@@ -141,13 +141,11 @@ struct QuickGradeValueSelectionView: View {
     @State private var selectedGradeValue: Double?
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                selectedInfoView
-                gradePickerSection
-            }
-            .padding(.horizontal)
+        VStack(spacing: 20) {
+            selectedInfoView
+            gradePickerSection
         }
+        .padding(.horizontal)
         .navigationTitle("Note eingeben")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -229,7 +227,8 @@ struct QuickGradeValueSelectionView: View {
                 }
             }
             .padding(.vertical, 8)
-            
+            Spacer()
+
             if selectedGradeValue != nil {
                 Button(action: saveGrade) {
                     HStack {
@@ -284,6 +283,7 @@ struct QuickGradeValueSelectionView: View {
         }
         .buttonStyle(.plain)
         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: selectedGradeValue)
+        .sensoryFeedback(.increase, trigger: selectedGradeValue)
     }
     
     private var gradeRows: [(Int, [(value: Double, display: String)], Color)] {
@@ -346,10 +346,24 @@ struct QuickGradeSubjectRowView: View {
                     .foregroundColor(.secondary)
                 
                 if let average = averageGrade {
-                    Text("⌀ \(GradingSystemHelpers.gradeDisplayText(for: average, system: selectedSchoolYear.gradingSystem))")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(GradingSystemHelpers.gradeColor(for: average, system: selectedSchoolYear.gradingSystem))
+                    let hasFinalGrade = DataManager.hasFinalGrade(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+                    
+                    HStack(spacing: 2) {
+                        if hasFinalGrade {
+                            Image(systemName: "star.fill")
+                                .font(.caption2)
+                                .foregroundColor(GradingSystemHelpers.gradeColor(for: average, system: selectedSchoolYear.gradingSystem))
+                        } else {
+                            Text("⌀")
+                                .font(.caption2)
+                                .foregroundColor(GradingSystemHelpers.gradeColor(for: average, system: selectedSchoolYear.gradingSystem))
+                        }
+                        
+                        Text("\(GradingSystemHelpers.gradeDisplayText(for: average, system: selectedSchoolYear.gradingSystem))")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(GradingSystemHelpers.gradeColor(for: average, system: selectedSchoolYear.gradingSystem))
+                    }
                 }
             }
             

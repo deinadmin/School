@@ -90,7 +90,7 @@ struct SchoolYear: Hashable, Codable {
     /// Debug: Returns school years with saved grading systems from UserDefaults
     static var allAvailableYears: [SchoolYear] {
         let currentYear = Calendar.current.component(.year, from: Date())
-        return (currentYear-10...currentYear).map { year in
+        return (currentYear-20...currentYear+5).map { year in
             let savedSystem = UserDefaults.standard.gradingSystem(forSchoolYear: year) ?? .traditional
             return SchoolYear(startYear: year, gradingSystem: savedSystem)
         }

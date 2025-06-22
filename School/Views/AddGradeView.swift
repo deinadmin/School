@@ -172,6 +172,7 @@ struct AddGradeView: View {
         }
         .buttonStyle(.plain)
         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: gradeValue)
+        .sensoryFeedback(.increase, trigger: gradeValue)
     }
     
     // Debug: Get grade rows based on the school year's grading system

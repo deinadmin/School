@@ -23,6 +23,8 @@ struct SubjectDetailView: View {
     @State private var selectedGradeTypeForNewGrade: GradeType?
     @State private var gradeTypesUpdateTrigger = UUID() // Debug: Trigger view refresh when grade types change
     @State private var showingFixWeights = false // Debug: Show weight fixing sheet
+    @State private var showingFinalGradeSheet = false // Debug: Show final grade entry sheet
+    @State private var showingRemoveFinalGradeAlert = false // Debug: Show remove final grade confirmation
     
     // Debug: Get grades for this subject in the selected period
     private var grades: [Grade] {
@@ -35,9 +37,24 @@ struct SubjectDetailView: View {
         return GradeTypeManager.getGradeTypes(for: subject, from: modelContext)
     }
     
-    // Debug: Calculate average for selected period
+    // Debug: Calculate average for selected period (includes final grade if set)
     private var averageGrade: Double? {
         DataManager.calculateWeightedAverage(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+    }
+    
+    // Debug: Get calculated average without final grade override
+    private var calculatedAverage: Double? {
+        DataManager.getCalculatedAverage(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+    }
+    
+    // Debug: Check if final grade is set
+    private var hasFinalGrade: Bool {
+        DataManager.hasFinalGrade(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+    }
+    
+    // Debug: Get final grade value
+    private var finalGradeValue: Double? {
+        DataManager.getFinalGrade(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)?.value
     }
     
     var body: some View {
@@ -50,6 +67,9 @@ struct SubjectDetailView: View {
                     
                     // Debug: Statistics section
                     statisticsView
+                    
+                    // Debug: Final grade section
+                    finalGradeSection
                     
                     // Debug: Grades section with all grade types
                     gradesSection
@@ -118,6 +138,22 @@ struct SubjectDetailView: View {
                     Text("Dies wird den Notentyp '\(gradeTypeToDelete.name)' und alle \(gradeCount) zugehörigen Noten unwiderruflich löschen.")
                 }
             }
+            .sheet(isPresented: $showingFinalGradeSheet) {
+                SetFinalGradeView(
+                    subject: subject,
+                    schoolYear: selectedSchoolYear,
+                    semester: selectedSemester,
+                    currentFinalGrade: finalGradeValue
+                )
+            }
+            .alert("Endnote entfernen?", isPresented: $showingRemoveFinalGradeAlert) {
+                Button("Entfernen", role: .destructive) {
+                    DataManager.removeFinalGrade(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+                }
+                Button("Abbrechen", role: .cancel) { }
+            } message: {
+                Text("Die Endnote wird entfernt und der berechnete Durchschnitt wird wieder verwendet.")
+            }
         }
         .tint(Color(hex: subject.colorHex)) // Debug: Apply subject color to navigation elements (back button, toolbar buttons)
     }
@@ -176,7 +212,7 @@ struct SubjectDetailView: View {
                 )
                 
                 StatisticCard(
-                    title: "Durchschnitt",
+                    title: hasFinalGrade ? "Endnote" : "Durchschnitt",
                     value: averageGrade != nil ? GradingSystemHelpers.gradeDisplayText(for: averageGrade!, system: selectedSchoolYear.gradingSystem) : "—",
                     icon: "chart.bar",
                     color: averageGrade != nil ? GradingSystemHelpers.gradeColor(for: averageGrade!, system: selectedSchoolYear.gradingSystem) : .gray
@@ -378,6 +414,114 @@ struct SubjectDetailView: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(.orange.opacity(0.3), lineWidth: 1)
         )
+    }
+    
+    // Debug: Final grade section for setting manual end-of-semester grade
+    private var finalGradeSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Endnote")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                
+                Spacer()
+                
+                if hasFinalGrade {
+
+                    Button(action: {
+                        showingRemoveFinalGradeAlert = true
+                    }) {
+                        Circle()
+                            .fill(.secondary)
+                            .frame(width: 30, height: 30)
+                            .overlay(
+                                Image(systemName: "trash")
+                                    .foregroundColor(.primary.appropriateTextColor())
+                                    .font(.system(size: 16))
+                            )
+                    }
+                    .buttonStyle(.scalable)
+                }
+                
+
+                Button {
+                    showingFinalGradeSheet = true
+                } label: {
+                    Image(systemName: hasFinalGrade ? "pencil.circle.fill" : "plus.circle.fill")
+                        .foregroundColor(Color(hex: subject.colorHex))
+                        .font(.system(size: 30))
+                        .frame(width: 30, height: 30)
+                }
+                .buttonStyle(.scalable)
+            }
+            
+            VStack(alignment: .leading, spacing: 12) {
+                if hasFinalGrade, let finalGrade = finalGradeValue {
+                    // Debug: Show set final grade
+                    HStack {
+                        Image(systemName: "star.fill")
+                            .foregroundColor(Color(hex: subject.colorHex))
+                            .font(.title2)
+                            .frame(width: 40, height: 40)
+                            .background(Color(hex: subject.colorHex).opacity(0.2))
+                            .cornerRadius(8)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Zeugnisnote")
+                                .font(.headline)
+                                .fontWeight(.medium)
+                            
+                            Text("Überschreibt berechneten Durchschnitt")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text(GradingSystemHelpers.gradeDisplayText(for: finalGrade, system: selectedSchoolYear.gradingSystem))
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(GradingSystemHelpers.gradeColor(for: finalGrade, system: selectedSchoolYear.gradingSystem))
+                        }
+                    }
+                } else {
+                    // Debug: Show option to set final grade
+                    HStack {
+                        Image(systemName: "star")
+                            .foregroundColor(.secondary)
+                            .font(.title2)
+                            .frame(width: 40, height: 40)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Endnote festlegen")
+                                .font(.headline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+                            
+                            Text("Überschreibt den berechneten Durchschnitt")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                    }
+                }
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.thinMaterial)
+                    .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color(.systemGray5), lineWidth: 1)
+            )
+        }
     }
     
     // Debug: Empty state when no grade types exist
@@ -739,4 +883,227 @@ struct GradeRowView: View {
             Text("Diese Aktion kann nicht rückgängig gemacht werden.")
         }
     }
-} 
+}
+
+// Debug: Sheet for setting final grade
+struct SetFinalGradeView: View {
+    let subject: Subject
+    let schoolYear: SchoolYear
+    let semester: Semester
+    let currentFinalGrade: Double?
+    
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var selectedGradeValue: Double? = nil
+    @State private var showingError = false
+    @State private var errorMessage = ""
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                // Debug: Header with subject info
+                headerView
+                
+                // Debug: Grade input section
+                gradeInputSection
+                
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("Endnote festlegen")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Abbrechen") {
+                        dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Speichern") {
+                        saveFinalGrade()
+                    }
+                    .disabled(selectedGradeValue == nil)
+                }
+            }
+            .onAppear {
+                if let currentGrade = currentFinalGrade {
+                    selectedGradeValue = currentGrade
+                }
+            }
+            .alert("Fehler", isPresented: $showingError) {
+                Button("OK") { }
+            } message: {
+                Text(errorMessage)
+            }
+        }
+        .accentColor(Color(hex: subject.colorHex))
+    }
+    
+    // Debug: Header with subject and period information
+    private var headerView: some View {
+        HStack {
+            Image(systemName: subject.icon)
+                .font(.largeTitle)
+                .foregroundColor(Color(hex: subject.colorHex))
+                .frame(width: 60, height: 60)
+                .background(Color(hex: subject.colorHex).opacity(0.1))
+                .cornerRadius(8)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(subject.name)
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                Text("\(schoolYear.displayName) - \(semester.displayName)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.thinMaterial)
+                .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(.systemGray5), lineWidth: 1)
+        )
+    }
+    
+    // Debug: Grade picker section with the standard grade picker used throughout the app
+    private var gradeInputSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Endnote")
+                .font(.headline)
+                .fontWeight(.bold)
+            
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: "star.fill")
+                        .foregroundColor(Color(hex: subject.colorHex))
+                        .font(.title2)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Zeugnisnote auswählen")
+                            .font(.headline)
+                            .fontWeight(.medium)
+                        
+                        Text("Bereich: \(GradingSystemHelpers.gradeDisplayText(for: schoolYear.gradingSystem.minValue, system: schoolYear.gradingSystem)) - \(GradingSystemHelpers.gradeDisplayText(for: schoolYear.gradingSystem.maxValue, system: schoolYear.gradingSystem))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                }
+                
+                // Debug: Standard grade picker grid used throughout the app
+                VStack(spacing: 12) {
+                    ForEach(gradeRows, id: \.0) { row in
+                        HStack(spacing: 12) {
+                            ForEach(row.1, id: \.value) { gradeItem in
+                                gradeButton(for: gradeItem, rowColor: row.2)
+                            }
+                            
+                            // Debug: Add empty space for rows with fewer items
+                            let itemsInRow = row.1.count
+                            let maxItemsPerRow = schoolYear.gradingSystem == .traditional ? 3 : 4
+                            if itemsInRow < maxItemsPerRow {
+                                ForEach(0..<(maxItemsPerRow - itemsInRow), id: \.self) { _ in
+                                    Spacer()
+                                        .frame(maxWidth: .infinity)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 8)
+                
+                Text("Diese Note überschreibt den berechneten Durchschnitt und wird für die Zeugnisschnitt-Berechnung verwendet.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.thinMaterial)
+                    .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color(.systemGray5), lineWidth: 1)
+            )
+        }
+    }
+    
+    // Debug: Get grade rows based on the school year's grading system
+    private var gradeRows: [(Int, [(value: Double, display: String)], Color)] {
+        return GradingSystemHelpers.getGradeRows(for: schoolYear.gradingSystem)
+    }
+    
+    // Debug: Individual grade button with animations (same as used in AddGradeView)
+    private func gradeButton(for gradeItem: (value: Double, display: String), rowColor: Color) -> some View {
+        Button(action: {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                selectedGradeValue = gradeItem.value
+            }
+        }) {
+            Text(gradeItem.display)
+                .font(.title3)
+                .fontWeight(.semibold)
+                .foregroundColor(selectedGradeValue == gradeItem.value ? .white : rowColor)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .background(
+                    Group {
+                        if selectedGradeValue == gradeItem.value {
+                            rowColor
+                        } else {
+                            rowColor.opacity(0.12)
+                        }
+                    }
+                )
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(rowColor.opacity(selectedGradeValue == gradeItem.value ? 0 : 0.3), lineWidth: 1)
+                )
+                .scaleEffect(selectedGradeValue == gradeItem.value ? 1.05 : 1.0)
+                .shadow(
+                    color: selectedGradeValue == gradeItem.value ? rowColor.opacity(0.3) : .clear,
+                    radius: selectedGradeValue == gradeItem.value ? 8 : 0,
+                    x: 0, y: 4
+                )
+        }
+        .buttonStyle(.plain)
+        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: selectedGradeValue)
+        .sensoryFeedback(.increase, trigger: selectedGradeValue)
+    }
+    
+    // Debug: Save final grade with validation
+    private func saveFinalGrade() {
+        guard let gradeValue = selectedGradeValue else {
+            errorMessage = "Bitte wählen Sie eine Note aus."
+            showingError = true
+            return
+        }
+        
+        // Debug: Validate grade range for the grading system (should always be valid with picker)
+        let minValue = schoolYear.gradingSystem.minValue
+        let maxValue = schoolYear.gradingSystem.maxValue
+        
+        if gradeValue < minValue || gradeValue > maxValue {
+            errorMessage = "Note muss zwischen \(GradingSystemHelpers.gradeDisplayText(for: minValue, system: schoolYear.gradingSystem)) und \(GradingSystemHelpers.gradeDisplayText(for: maxValue, system: schoolYear.gradingSystem)) liegen."
+            showingError = true
+            return
+        }
+        
+        DataManager.setFinalGrade(value: gradeValue, for: subject, schoolYear: schoolYear, semester: semester, in: modelContext)
+        dismiss()
+    }
+}

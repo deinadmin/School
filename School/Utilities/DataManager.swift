@@ -230,7 +230,14 @@ class DataManager {
     // MARK: - Statistics
     
     /// Calculate weighted average for a subject in specific school year/semester
+    /// Debug: Now checks for final grade first, falls back to calculated average
     static func calculateWeightedAverage(for subject: Subject, schoolYear: SchoolYear, semester: Semester, from context: ModelContext) -> Double? {
+        // Debug: Check if final grade exists and return it instead of calculated average
+        if let finalGrade = getFinalGrade(for: subject, schoolYear: schoolYear, semester: semester, from: context) {
+            print("Debug: Using final grade for '\(subject.name)' in \(schoolYear.displayName) \(semester.displayName): \(finalGrade.value)")
+            return finalGrade.value
+        }
+        
         let grades = getGrades(for: subject, schoolYear: schoolYear, semester: semester, from: context)
         
         guard !grades.isEmpty else { return nil }
@@ -274,6 +281,26 @@ class DataManager {
         return average
     }
     
+    /// Calculate overall average with final grades for report card calculation
+    /// Debug: Uses final grades when set, otherwise calculated averages, for accurate report card grade
+    static func calculateOverallAverageWithFinalGrades(for subjects: [Subject], schoolYear: SchoolYear, semester: Semester, from context: ModelContext) -> Double? {
+        var subjectAverages: [Double] = []
+        
+        for subject in subjects {
+            // Debug: Get the weighted average for this subject (includes final grade override)
+            if let average = calculateWeightedAverage(for: subject, schoolYear: schoolYear, semester: semester, from: context) {
+                subjectAverages.append(average)
+            }
+        }
+        
+        guard !subjectAverages.isEmpty else { return nil }
+        
+        // Debug: Calculate simple average of all subject averages for overall grade
+        let overallAverage = subjectAverages.reduce(0.0, +) / Double(subjectAverages.count)
+        print("Debug: Calculated overall average with final grades from \(subjectAverages.count) subjects: \(overallAverage)")
+        return overallAverage
+    }
+    
     /// Get subjects that have grades in a specific school year/semester
     static func getSubjectsWithGrades(for schoolYear: SchoolYear, semester: Semester, from context: ModelContext) -> [Subject] {
         let grades = getGrades(for: schoolYear, semester: semester, from: context)
@@ -312,21 +339,23 @@ class DataManager {
     
     // MARK: - Grading System Conversion
     
-    /// Convert all grades for a school year to a new grading system
-    /// Debug: Used when user changes grading system - converts all existing grades
+    /// Convert all grades and final grades for a school year to a new grading system
+    /// Debug: Used when user changes grading system - converts all existing grades and final grades
     static func convertGradingSystem(for schoolYear: SchoolYear, to newSystem: GradingSystem, from context: ModelContext) -> (success: Bool, convertedCount: Int, errorMessage: String?) {
         let grades = getAllGrades(for: schoolYear, from: context)
+        let finalGrades = getAllFinalGrades(for: schoolYear, from: context)
         
-        guard !grades.isEmpty else {
-            print("Debug: No grades to convert for school year \(schoolYear.displayName)")
+        guard !grades.isEmpty || !finalGrades.isEmpty else {
+            print("Debug: No grades or final grades to convert for school year \(schoolYear.displayName)")
             return (true, 0, nil)
         }
         
         let oldSystem = schoolYear.gradingSystem
         var convertedCount = 0
         
-        print("Debug: Converting \(grades.count) grades from \(oldSystem.displayName) to \(newSystem.displayName)")
+        print("Debug: Converting \(grades.count) grades and \(finalGrades.count) final grades from \(oldSystem.displayName) to \(newSystem.displayName)")
         
+        // Debug: Convert regular grades
         for grade in grades {
             let oldValue = grade.value
             let newValue = GradingSystemHelpers.convertGrade(oldValue, from: oldSystem, to: newSystem)
@@ -337,12 +366,23 @@ class DataManager {
             print("Debug: Converted grade \(oldValue) → \(newValue)")
         }
         
+        // Debug: Convert final grades
+        for finalGrade in finalGrades {
+            let oldValue = finalGrade.value
+            let newValue = GradingSystemHelpers.convertGrade(oldValue, from: oldSystem, to: newSystem)
+            
+            finalGrade.value = newValue
+            convertedCount += 1
+            
+            print("Debug: Converted final grade \(oldValue) → \(newValue)")
+        }
+        
         do {
             try context.save()
-            print("Debug: Successfully converted \(convertedCount) grades to \(newSystem.displayName)")
+            print("Debug: Successfully converted \(convertedCount) grades and final grades to \(newSystem.displayName)")
             return (true, convertedCount, nil)
         } catch {
-            print("Debug: Error saving converted grades: \(error)")
+            print("Debug: Error saving converted grades and final grades: \(error)")
             return (false, 0, "Fehler beim Speichern der konvertierten Noten: \(error.localizedDescription)")
         }
     }
@@ -364,16 +404,123 @@ class DataManager {
         }
     }
     
-    /// Check if a school year has any grades stored (for any semester)
+    /// Get all final grades for a school year (both semesters)
+    /// Debug: Helper method for final grade conversion
+    private static func getAllFinalGrades(for schoolYear: SchoolYear, from context: ModelContext) -> [FinalGrade] {
+        let descriptor = FetchDescriptor<FinalGrade>(
+            predicate: #Predicate<FinalGrade> { finalGrade in
+                finalGrade.schoolYearStartYear == schoolYear.startYear
+            }
+        )
+        
+        do {
+            return try context.fetch(descriptor)
+        } catch {
+            print("Debug: Error fetching final grades for conversion: \(error)")
+            return []
+        }
+    }
+    
+    /// Check if a school year has any grades or final grades stored (for any semester)
     /// Debug: Used to show conversion preview to user
     static func hasGrades(for schoolYear: SchoolYear, from context: ModelContext) -> Bool {
         let grades = getAllGrades(for: schoolYear, from: context)
-        return !grades.isEmpty
+        let finalGrades = getAllFinalGrades(for: schoolYear, from: context)
+        return !grades.isEmpty || !finalGrades.isEmpty
     }
     
-    /// Get count of grades for a specific school year (for display purposes)
-    /// Debug: Used to show user how many grades will be converted
+    /// Get count of grades and final grades for a specific school year (for display purposes)
+    /// Debug: Used to show user how many grades and final grades will be converted
     static func getGradeCount(for schoolYear: SchoolYear, from context: ModelContext) -> Int {
-        return getAllGrades(for: schoolYear, from: context).count
+        let gradeCount = getAllGrades(for: schoolYear, from: context).count
+        let finalGradeCount = getAllFinalGrades(for: schoolYear, from: context).count
+        return gradeCount + finalGradeCount
+    }
+    
+    // MARK: - Final Grade Operations
+    
+    /// Get final grade for a subject in specific school year/semester
+    /// Debug: Returns manual final grade that overrides calculated average
+    static func getFinalGrade(for subject: Subject, schoolYear: SchoolYear, semester: Semester, from context: ModelContext) -> FinalGrade? {
+        let descriptor = FetchDescriptor<FinalGrade>(
+            predicate: #Predicate<FinalGrade> { finalGrade in
+                finalGrade.schoolYearStartYear == schoolYear.startYear
+            }
+        )
+        
+        do {
+            let allFinalGrades = try context.fetch(descriptor)
+            return allFinalGrades.first { finalGrade in
+                guard let finalGradeSubject = finalGrade.subject else { return false }
+                return finalGrade.semester == semester && finalGradeSubject.persistentModelID == subject.persistentModelID
+            }
+        } catch {
+            print("Debug: Error fetching final grade: \(error)")
+            return nil
+        }
+    }
+    
+    /// Set final grade for a subject in specific school year/semester
+    /// Debug: Creates new final grade or updates existing one
+    static func setFinalGrade(value: Double, for subject: Subject, schoolYear: SchoolYear, semester: Semester, in context: ModelContext) {
+        // Debug: Check if final grade already exists
+        if let existingFinalGrade = getFinalGrade(for: subject, schoolYear: schoolYear, semester: semester, from: context) {
+            existingFinalGrade.value = value
+            print("Debug: Updated existing final grade for '\(subject.name)' to \(value)")
+        } else {
+            let finalGrade = FinalGrade(value: value, schoolYearStartYear: schoolYear.startYear, semester: semester, subject: subject)
+            context.insert(finalGrade)
+            print("Debug: Created new final grade for '\(subject.name)': \(value)")
+        }
+        
+        do {
+            try context.save()
+            print("Debug: Final grade saved successfully for '\(subject.name)' in \(schoolYear.displayName) \(semester.displayName)")
+        } catch {
+            print("Debug: Error saving final grade: \(error)")
+        }
+    }
+    
+    /// Remove final grade for a subject in specific school year/semester
+    /// Debug: Deletes final grade so calculated average is used again
+    static func removeFinalGrade(for subject: Subject, schoolYear: SchoolYear, semester: Semester, from context: ModelContext) {
+        if let finalGrade = getFinalGrade(for: subject, schoolYear: schoolYear, semester: semester, from: context) {
+            context.delete(finalGrade)
+            
+            do {
+                try context.save()
+                print("Debug: Removed final grade for '\(subject.name)' in \(schoolYear.displayName) \(semester.displayName)")
+            } catch {
+                print("Debug: Error removing final grade: \(error)")
+            }
+        }
+    }
+    
+    /// Check if subject has final grade set for specific period
+    /// Debug: Used to determine UI display (final grade vs calculated average)
+    static func hasFinalGrade(for subject: Subject, schoolYear: SchoolYear, semester: Semester, from context: ModelContext) -> Bool {
+        return getFinalGrade(for: subject, schoolYear: schoolYear, semester: semester, from: context) != nil
+    }
+    
+    /// Get calculated average without final grade override
+    /// Debug: Used to show user what the calculated average would be alongside final grade
+    static func getCalculatedAverage(for subject: Subject, schoolYear: SchoolYear, semester: Semester, from context: ModelContext) -> Double? {
+        let grades = getGrades(for: subject, schoolYear: schoolYear, semester: semester, from: context)
+        
+        guard !grades.isEmpty else { return nil }
+        
+        let totalWeightedPoints = grades.reduce(0.0) { total, grade in
+            let weight = grade.gradeType?.weight ?? 0
+            return total + (grade.value * Double(weight))
+        }
+        
+        let totalWeight = grades.reduce(0) { total, grade in
+            let weight = grade.gradeType?.weight ?? 0
+            return total + weight
+        }
+        
+        guard totalWeight > 0 else { return nil }
+        
+        return totalWeightedPoints / Double(totalWeight)
     }
 }
