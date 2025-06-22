@@ -14,7 +14,6 @@ struct SchoolApp: App {
     WindowGroup {
       ContentView()
     }
-    // Debug: Configure SwiftData model container for Subject, Grade, GradeType, and FinalGrade persistence
     .modelContainer(for: [Subject.self, Grade.self, GradeType.self, FinalGrade.self])
   }
 }

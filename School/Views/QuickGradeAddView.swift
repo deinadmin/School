@@ -229,6 +229,14 @@ struct QuickGradeValueSelectionView: View {
                 }
             }
             .padding(.vertical, 8)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Speichern") {
+                        saveGrade()
+                    }
+                    .disabled(selectedGradeValue == nil)
+                }
+            }
 
             if selectedGradeValue != nil {
                 Button(action: saveGrade) {
