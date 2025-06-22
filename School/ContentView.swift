@@ -244,6 +244,31 @@ struct ContentView: View {
             .onAppear {
                 loadSelectedPeriod()
             }
+            // Debug: Handle deep linking to open the quick add view
+            .onOpenURL { url in
+                print("Debug: .onOpenURL called with URL: \(url)")
+                if url.scheme == "schoolapp" && url.host == "quick-add" {
+                    print("Debug: URL matched. Current showingQuickGradeAdd: \(self.showingQuickGradeAdd). Attempting to set to true.")
+                    
+                    // Debug: To avoid state conflicts, dismiss any currently presented sheet first
+                    if showingAddSubject || showingSettings {
+                        print("Debug: Other sheet is showing. Dismissing it first.")
+                        showingAddSubject = false
+                        showingSettings = false
+                        
+                        // Debug: Give the dismissal animation a moment to complete
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            print("Debug: Dispatch.asyncAfter - Setting showingQuickGradeAdd to true.")
+                            showingQuickGradeAdd = true
+                        }
+                    } else {
+                        print("Debug: No other sheet showing. Setting showingQuickGradeAdd to true directly.")
+                        showingQuickGradeAdd = true
+                    }
+                } else {
+                    print("Debug: URL did not match expected scheme/host.")
+                }
+            }
             .onChange(of: selectedSchoolYear) { _, newValue in
                 saveSelectedSchoolYear(newValue)
             }

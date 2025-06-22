@@ -10,9 +10,22 @@
 		C35208A02DF1F7B0001DB70D /* School.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = School.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		C347C74A2E08781700C01DCF /* Exceptions for "School" folder in "School" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = C352089F2DF1F7B0001DB70D /* School */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		C35208A22DF1F7B0001DB70D /* School */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C347C74A2E08781700C01DCF /* Exceptions for "School" folder in "School" target */,
+			);
 			path = School;
 			sourceTree = "<group>";
 		};
@@ -256,6 +269,7 @@
 				DEVELOPMENT_TEAM = L7QA44TPN4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = School/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = School;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -287,6 +301,7 @@
 				DEVELOPMENT_TEAM = L7QA44TPN4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = School/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = School;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
