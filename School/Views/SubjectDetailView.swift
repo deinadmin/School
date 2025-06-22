@@ -901,16 +901,18 @@ struct SetFinalGradeView: View {
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                // Debug: Header with subject info
-                headerView
-                
-                // Debug: Grade input section
-                gradeInputSection
-                
-                Spacer()
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Debug: Header with subject info
+                    headerView
+                    
+                    // Debug: Grade input section
+                    gradeInputSection
+                    
+                    Spacer()
+                }
+                .padding(.horizontal)
             }
-            .padding()
             .navigationTitle("Endnote festlegen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

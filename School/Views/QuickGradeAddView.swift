@@ -141,11 +141,13 @@ struct QuickGradeValueSelectionView: View {
     @State private var selectedGradeValue: Double?
     
     var body: some View {
-        VStack(spacing: 20) {
-            selectedInfoView
-            gradePickerSection
+        ScrollView {
+            VStack(spacing: 20) {
+                selectedInfoView
+                gradePickerSection
+            }
+            .padding(.horizontal)   
         }
-        .padding(.horizontal)
         .navigationTitle("Note eingeben")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -227,7 +229,6 @@ struct QuickGradeValueSelectionView: View {
                 }
             }
             .padding(.vertical, 8)
-            Spacer()
 
             if selectedGradeValue != nil {
                 Button(action: saveGrade) {
@@ -244,6 +245,7 @@ struct QuickGradeValueSelectionView: View {
                 }
                 .buttonStyle(.scalable)
                 .padding(.top, 8)
+                .padding(.bottom)
             }
         }
     }
