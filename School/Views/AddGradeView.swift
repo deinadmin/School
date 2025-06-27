@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import WidgetKit
 
 struct AddGradeView: View {
     let subject: Subject
@@ -233,7 +234,22 @@ struct AddGradeView: View {
             in: modelContext
         )
         
+        // Debug: Update widget after adding new grade
+        updateWidget()
+        
         dismiss()
+    }
+    
+    /// Update widget with current data
+    /// Debug: Triggers widget refresh with latest grade statistics
+    private func updateWidget() {
+        let allSubjects = DataManager.getAllSubjects(from: modelContext)
+        WidgetHelper.updateWidget(
+            with: allSubjects,
+            selectedSchoolYear: schoolYear,
+            selectedSemester: semester,
+            from: modelContext
+        )
     }
     
 

@@ -47,6 +47,7 @@ struct AddSubjectView: View {
     @State private var selectedColorHex: String = "4ECDC4"
     @State private var selectedIcon: String = "book.fill"
     @State private var selectedCustomGradeTypes: [GradeTypeDefinition]? = nil // Debug: Store custom grade types from suggestions
+    @FocusState private var isSubjectNameFocused: Bool
     
     // Debug: Query existing subjects to check for duplicates
     @Query(sort: \Subject.name) private var existingSubjects: [Subject]
@@ -206,6 +207,10 @@ struct AddSubjectView: View {
                     .disabled(!isFormValid)
                 }
             }
+            .task {
+                // Debug: Instantly focus the subject name field when view loads
+                isSubjectNameFocused = true
+            }
         }
     }
     
@@ -214,6 +219,7 @@ struct AddSubjectView: View {
         Section("Fachname") {
             TextField("z.B. Mathematik", text: $subjectName)
                 .autocorrectionDisabled()
+                .focused($isSubjectNameFocused)
                 .onChange(of: subjectName) { _, newValue in
                     // Debug: Reset custom grade types when user manually types (unless it matches a suggestion exactly)
                     if !subjectSuggestions.contains(where: { $0.name == newValue }) {

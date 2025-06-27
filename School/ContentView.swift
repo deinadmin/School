@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
+import WidgetKit
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -16,6 +17,9 @@ struct ContentView: View {
     @State private var showingAddSubject = false
     @State private var showingQuickGradeAdd = false
     @State private var showingSettings = false // Debug: State for settings sheet
+    // Debug: App Storage for settings that affect main view
+    @AppStorage("showMotivationalCharacter") private var showMotivationalCharacter = false
+    @AppStorage("roundPointAverages") private var roundPointAverages = true
     // Debug: Query all subjects (subjects are independent of school year/semester)
     @Query(sort: \Subject.name) private var allSubjects: [Subject]
     
@@ -132,7 +136,7 @@ struct ContentView: View {
                                 }
                             }
                         }
-                        if false {
+                        if showMotivationalCharacter {
                             HStack(alignment: .top, spacing: 16) {
                                 // Debug: Speech bubble positioned at character's mouth height
                                 VStack {
@@ -163,10 +167,11 @@ struct ContentView: View {
                                     .frame(height: 250)
                                 
                             }
-                            .padding(.bottom, 60)
+                            
                         }
                     }
                     .padding(.horizontal)
+                    .padding(.bottom, 145)
                 }
                 
                 VStack(alignment: .leading) {
@@ -219,13 +224,13 @@ struct ContentView: View {
             }
             .navigationTitle("School")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {     
                     Button(action: {
                         showingSettings = true
                     }) {
-                        Image(systemName: "gearshape")
-                            .foregroundColor(.secondary)
-                            .font(.title2)
+                        Image(systemName: "gearshape.fill")
+                            .foregroundColor(.primary)
+                            .bold()
                     }
                 }
             }
@@ -271,9 +276,25 @@ struct ContentView: View {
             }
             .onChange(of: selectedSchoolYear) { _, newValue in
                 saveSelectedSchoolYear(newValue)
+                // Debug: Update widget when school year changes
+                updateWidget()
             }
             .onChange(of: selectedSemester) { _, newValue in
                 saveSelectedSemester(newValue)
+                // Debug: Update widget when semester changes
+                updateWidget()
+            }
+            .onAppear {
+                // Debug: Update widget when view appears
+                updateWidget()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                // Debug: Update widget when app becomes active
+                updateWidget()
+            }
+            .onChange(of: roundPointAverages) { _, _ in
+                // Debug: Update widget when rounding setting changes
+                updateWidget()
             }
         }
     }
@@ -324,6 +345,17 @@ struct ContentView: View {
         UserDefaults.standard.setStruct(semester, forKey: selectedSemesterKey)
         print("Debug: Saved semester selection: \(semester.displayName)")
     }
+    
+    /// Update widget with current data
+    /// Debug: Triggers widget refresh with latest grade statistics
+    private func updateWidget() {
+        WidgetHelper.updateWidget(
+            with: allSubjects,
+            selectedSchoolYear: selectedSchoolYear,
+            selectedSemester: selectedSemester,
+            from: modelContext
+        )
+    }
 }
 
 // Debug: Statistics card showing overall performance metrics
@@ -332,6 +364,8 @@ struct StatisticsCardView: View {
     let selectedSchoolYear: SchoolYear
     let selectedSemester: Semester
     @Environment(\.modelContext) private var modelContext
+    // Debug: App Storage for rounding setting to trigger UI updates
+    @AppStorage("roundPointAverages") private var roundPointAverages = true
     
     // Debug: Calculate overall statistics for the selected period (includes final grades)
     private var overallStatistics: (average: Double?, totalGrades: Int, subjectsWithGrades: Int) {
@@ -423,6 +457,7 @@ struct StatisticsCardView: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(Color(.systemGray5), lineWidth: 1)
         )
+        .id(roundPointAverages) // Debug: Force UI update when rounding setting changes
     }
 }
 
@@ -433,6 +468,8 @@ struct SubjectRowView: View {
     let selectedSemester: Semester
     @Environment(\.modelContext) private var modelContext
     @State private var showingDeleteAlert = false
+    // Debug: App Storage for rounding setting to trigger UI updates
+    @AppStorage("roundPointAverages") private var roundPointAverages = true
     
     // Debug: Get grades for this subject in the selected period
     private var gradesForSelectedPeriod: [Grade] {
@@ -522,6 +559,7 @@ struct SubjectRowView: View {
         } message: {
             Text("Das Fach \"\(subject.name)\" und alle zugehörigen Noten werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.")
         }
+        .id(roundPointAverages) // Debug: Force UI update when rounding setting changes
     }
 }
 
@@ -530,10 +568,8 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     var onImportComplete: () -> Void
-    @State private var notificationsEnabled = true
-    @State private var analyticsEnabled = false
-    @State private var darkModeEnabled = false
-    @State private var soundEffectsEnabled = true
+    @State private var roundPointAverages = true
+    @State private var showMotivationalCharacter = false
     @State private var showingImportAlert = false
     @State private var showingExportSheet = false
     @State private var showingDocumentPicker = false
@@ -573,6 +609,9 @@ struct SettingsView: View {
                     Spacer()
                 }
                 .padding(.horizontal)
+            }
+            .onAppear {
+                loadSettings()
             }
             .navigationTitle("Einstellungen")
             .navigationBarTitleDisplayMode(.inline)
@@ -676,43 +715,38 @@ struct SettingsView: View {
                 .fontWeight(.bold)
             
             VStack(spacing: 12) {
-                // Debug: Notifications toggle
+                // Debug: Point average rounding toggle
                 settingRow(
-                    icon: "bell.fill",
-                    title: "Benachrichtigungen",
-                    subtitle: "Erinnerungen für Prüfungen und Noten",
-                    toggle: $notificationsEnabled
+                    icon: "number.circle.fill",
+                    title: "Punkteschnitt runden",
+                    subtitle: "Punkte-Durchschnitte auf ganze Zahlen runden",
+                    toggle: $roundPointAverages
                 )
                 
                 Divider()
                 
-                // Debug: Analytics toggle
+                // Debug: Motivational character toggle
                 settingRow(
-                    icon: "chart.bar.fill",
-                    title: "Analyse-Daten",
-                    subtitle: "Anonyme Nutzungsstatistiken",
-                    toggle: $analyticsEnabled
+                    icon: "person.crop.circle.fill",
+                    title: "Motivierende Sprüche",
+                    subtitle: "Zeigt Charakter mit motivierenden Nachrichten",
+                    toggle: $showMotivationalCharacter
                 )
-                
-                Divider()
-                
-                // Debug: Dark mode toggle
-                settingRow(
-                    icon: "moon.fill",
-                    title: "Dunkler Modus",
-                    subtitle: "Automatisch mit System",
-                    toggle: $darkModeEnabled
+            }
+            .onChange(of: roundPointAverages) { _, newValue in
+                UserDefaults.standard.set(newValue, forKey: "roundPointAverages")
+                // Debug: Update widget data when setting changes to refresh display
+                WidgetHelper.updateWidget(
+                    with: DataManager.getAllSubjects(from: modelContext),
+                    selectedSchoolYear: loadCurrentSchoolYear(),
+                    selectedSemester: loadCurrentSemester(),
+                    from: modelContext
                 )
-                
-                Divider()
-                
-                // Debug: Sound effects toggle
-                settingRow(
-                    icon: "speaker.wave.2.fill",
-                    title: "Soundeffekte",
-                    subtitle: "Haptisches Feedback",
-                    toggle: $soundEffectsEnabled
-                )
+                print("Debug: Point average rounding setting changed to: \(newValue)")
+            }
+            .onChange(of: showMotivationalCharacter) { _, newValue in
+                UserDefaults.standard.set(newValue, forKey: "showMotivationalCharacter")
+                print("Debug: Motivational character setting changed to: \(newValue)")
             }
             .padding()
             .background(
@@ -730,7 +764,7 @@ struct SettingsView: View {
     // Debug: About section with action buttons
     private var aboutSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Über die App")
+            Text("Verwaltung")
                 .font(.headline)
                 .fontWeight(.bold)
             
@@ -759,26 +793,13 @@ struct SettingsView: View {
                 
                 Divider()
                 
-                // Debug: Backup button
-                actionButton(
-                    icon: "icloud.and.arrow.up",
-                    title: "Backup erstellen",
-                    subtitle: "Daten in iCloud sichern"
-                ) {
-                    // Debug: Dummy action
-                    print("Debug: Backup tapped")
-                }
-                
-                Divider()
-                
                 // Debug: Support button
                 actionButton(
                     icon: "questionmark.circle",
                     title: "Support",
                     subtitle: "Hilfe und Kontakt"
                 ) {
-                    // Debug: Dummy action
-                    print("Debug: Support tapped")
+                    openSupportMail()
                 }
             }
             .padding()
@@ -862,6 +883,74 @@ struct SettingsView: View {
         }
         .buttonStyle(.plain)
         .disabled(isLoading)
+    }
+    
+    // MARK: - Settings Management
+    
+    /// Load settings from UserDefaults
+    /// Debug: Restores user's preferences when settings view appears
+    private func loadSettings() {
+        roundPointAverages = UserDefaults.standard.bool(forKey: "roundPointAverages")
+        showMotivationalCharacter = UserDefaults.standard.bool(forKey: "showMotivationalCharacter")
+        
+        // Debug: Set default values if not previously set
+        if !UserDefaults.standard.hasKey("roundPointAverages") {
+            roundPointAverages = true
+            UserDefaults.standard.set(true, forKey: "roundPointAverages")
+        }
+        
+        if !UserDefaults.standard.hasKey("showMotivationalCharacter") {
+            showMotivationalCharacter = false
+            UserDefaults.standard.set(false, forKey: "showMotivationalCharacter")
+        }
+        
+        print("Debug: Loaded settings - Round points: \(roundPointAverages), Show character: \(showMotivationalCharacter)")
+    }
+    
+    /// Load current school year selection from UserDefaults  
+    /// Debug: Helper function for widget updates from settings
+    private func loadCurrentSchoolYear() -> SchoolYear {
+        if let savedSchoolYear = UserDefaults.standard.getStruct(forKey: "selectedSchoolYear", as: SchoolYear.self) {
+            return savedSchoolYear
+        } else {
+            return SchoolYear.current
+        }
+    }
+    
+    /// Load current semester selection from UserDefaults
+    /// Debug: Helper function for widget updates from settings
+    private func loadCurrentSemester() -> Semester {
+        if let savedSemester = UserDefaults.standard.getStruct(forKey: "selectedSemester", as: Semester.self) {
+            return savedSemester
+        } else {
+            return .first
+        }
+    }
+    
+    // MARK: - Support Functions
+    
+    /// Open native mail app with support email
+    /// Debug: Opens Mail app with pre-filled support email address
+    private func openSupportMail() {
+        let email = "support@designedbycarl.de"
+        let subject = "School App Support"
+        let body = ""
+        
+        let encodedSubject = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        
+        let mailtoString = "mailto:\(email)?subject=\(encodedSubject)&body=\(encodedBody)"
+        
+        if let mailtoURL = URL(string: mailtoString) {
+            if UIApplication.shared.canOpenURL(mailtoURL) {
+                UIApplication.shared.open(mailtoURL)
+                print("Debug: Opened mail app with support email")
+            } else {
+                print("Debug: Mail app not available")
+            }
+        } else {
+            print("Debug: Failed to create mailto URL")
+        }
     }
     
     // MARK: - Export/Import Functions
@@ -1530,8 +1619,12 @@ extension View {
     }
 }
 
+// MARK: - UserDefaults Extension
 
-
-
-
-
+extension UserDefaults {
+    /// Check if UserDefaults has a key stored
+    /// Debug: Used to determine if settings have been set before
+    func hasKey(_ key: String) -> Bool {
+        return object(forKey: key) != nil
+    }
+}

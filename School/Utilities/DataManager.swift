@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftData
+import WidgetKit
 
 /// DataManager for SwiftData operations
 /// Debug: Provides helper methods for working with Subject, GradeType and Grade models
@@ -222,6 +223,9 @@ class DataManager {
         do {
             try context.save()
             print("Debug: Grade deleted successfully")
+            
+            // Debug: Update widget after deleting grade
+            updateWidgetAfterGradeChange(from: context)
         } catch {
             print("Debug: Error deleting grade: \(error)")
         }
@@ -476,6 +480,9 @@ class DataManager {
         do {
             try context.save()
             print("Debug: Final grade saved successfully for '\(subject.name)' in \(schoolYear.displayName) \(semester.displayName)")
+            
+            // Debug: Update widget after setting final grade
+            updateWidgetAfterGradeChange(from: context)
         } catch {
             print("Debug: Error saving final grade: \(error)")
         }
@@ -522,5 +529,43 @@ class DataManager {
         guard totalWeight > 0 else { return nil }
         
         return totalWeightedPoints / Double(totalWeight)
+    }
+    
+    // MARK: - Widget Update Helper
+    
+    /// Update widget after grade changes
+    /// Debug: Uses current user's school year/semester selection from UserDefaults
+    private static func updateWidgetAfterGradeChange(from context: ModelContext) {
+        // Debug: Load current user selection from UserDefaults
+        let currentSchoolYear = loadCurrentSchoolYear()
+        let currentSemester = loadCurrentSemester()
+        let allSubjects = getAllSubjects(from: context)
+        
+        WidgetHelper.updateWidget(
+            with: allSubjects,
+            selectedSchoolYear: currentSchoolYear,
+            selectedSemester: currentSemester,
+            from: context
+        )
+    }
+    
+    /// Load current school year selection from UserDefaults
+    /// Debug: Uses same keys as ContentView to get user's current selection
+    private static func loadCurrentSchoolYear() -> SchoolYear {
+        if let savedSchoolYear = UserDefaults.standard.getStruct(forKey: "selectedSchoolYear", as: SchoolYear.self) {
+            return savedSchoolYear
+        } else {
+            return SchoolYear.current
+        }
+    }
+    
+    /// Load current semester selection from UserDefaults
+    /// Debug: Uses same keys as ContentView to get user's current selection
+    private static func loadCurrentSemester() -> Semester {
+        if let savedSemester = UserDefaults.standard.getStruct(forKey: "selectedSemester", as: Semester.self) {
+            return savedSemester
+        } else {
+            return .first
+        }
     }
 }

@@ -51,8 +51,15 @@ class GradingSystemHelpers {
     
     /// Points system display (0 to 15)
     private static func pointsGradeDisplayText(for value: Double) -> String {
-        let intValue = Int(value.rounded())
-        return "\(intValue) P" // Debug: P for "Punkte" (Points)
+        // Debug: Check user setting for rounding point averages (default is true)
+        let shouldRound = UserDefaults.standard.object(forKey: "roundPointAverages") as? Bool ?? true
+        
+        if shouldRound {
+            let intValue = Int(value.rounded())
+            return "\(intValue) P" // Debug: P for "Punkte" (Points)
+        } else {
+            return String(format: "%.1f P", value)
+        }
     }
     
     // MARK: - Grade Color Functions

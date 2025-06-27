@@ -10,10 +10,10 @@
 		"swift"
 	],
 	"argv": [
-		"/usr/local/bin/xcode-build-server"
+		"/opt/homebrew/bin/xcode-build-server"
 	],
-	"workspace": "/Users/carl/Library/Mobile Documents/com~apple~CloudDocs/Xcode/School/School.xcodeproj/project.xcworkspace",
-	"build_root": "/Users/carl/Library/Developer/Xcode/DerivedData/School-ffkqhogmtvukqhgtwuneipofelwb",
+	"workspace": "/Users/carl/Documents/Development/xcode/School/School.xcodeproj/project.xcworkspace",
+	"build_root": "/Users/carl/Library/Developer/Xcode/DerivedData/School-dyedcbdjwzionvesxtaocakmofps",
 	"scheme": "School",
 	"kind": "xcode"
 }

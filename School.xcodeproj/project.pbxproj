@@ -6,8 +6,42 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		C3A897CE2E0DD8E0008A4DE0 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3A897CD2E0DD8DF008A4DE0 /* WidgetKit.framework */; };
+		C3A897D02E0DD8E0008A4DE0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3A897CF2E0DD8E0008A4DE0 /* SwiftUI.framework */; };
+		C3A897DF2E0DD8E1008A4DE0 /* SchoolWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C3A897CB2E0DD8DF008A4DE0 /* SchoolWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C3A897DD2E0DD8E1008A4DE0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C35208982DF1F7B0001DB70D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C3A897CA2E0DD8DF008A4DE0;
+			remoteInfo = SchoolWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		C3A897E02E0DD8E1008A4DE0 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				C3A897DF2E0DD8E1008A4DE0 /* SchoolWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		C35208A02DF1F7B0001DB70D /* School.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = School.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C3A897CB2E0DD8DF008A4DE0 /* SchoolWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SchoolWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		C3A897CD2E0DD8DF008A4DE0 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		C3A897CF2E0DD8E0008A4DE0 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		C3A897E92E0DE23E008A4DE0 /* SchoolWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SchoolWidgetExtension.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -17,6 +51,13 @@
 				Info.plist,
 			);
 			target = C352089F2DF1F7B0001DB70D /* School */;
+		};
+		C3A897E42E0DD8E1008A4DE0 /* Exceptions for "SchoolWidget" folder in "SchoolWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = C3A897CA2E0DD8DF008A4DE0 /* SchoolWidgetExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -29,6 +70,14 @@
 			path = School;
 			sourceTree = "<group>";
 		};
+		C3A897D12E0DD8E0008A4DE0 /* SchoolWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C3A897E42E0DD8E1008A4DE0 /* Exceptions for "SchoolWidget" folder in "SchoolWidgetExtension" target */,
+			);
+			path = SchoolWidget;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -39,13 +88,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C3A897C82E0DD8DF008A4DE0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C3A897D02E0DD8E0008A4DE0 /* SwiftUI.framework in Frameworks */,
+				C3A897CE2E0DD8E0008A4DE0 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		C35208972DF1F7B0001DB70D = {
 			isa = PBXGroup;
 			children = (
+				C3A897E92E0DE23E008A4DE0 /* SchoolWidgetExtension.entitlements */,
 				C35208A22DF1F7B0001DB70D /* School */,
+				C3A897D12E0DD8E0008A4DE0 /* SchoolWidget */,
+				C3A897CC2E0DD8DF008A4DE0 /* Frameworks */,
 				C35208A12DF1F7B0001DB70D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -54,8 +115,18 @@
 			isa = PBXGroup;
 			children = (
 				C35208A02DF1F7B0001DB70D /* School.app */,
+				C3A897CB2E0DD8DF008A4DE0 /* SchoolWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		C3A897CC2E0DD8DF008A4DE0 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C3A897CD2E0DD8DF008A4DE0 /* WidgetKit.framework */,
+				C3A897CF2E0DD8E0008A4DE0 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -68,10 +139,12 @@
 				C352089C2DF1F7B0001DB70D /* Sources */,
 				C352089D2DF1F7B0001DB70D /* Frameworks */,
 				C352089E2DF1F7B0001DB70D /* Resources */,
+				C3A897E02E0DD8E1008A4DE0 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				C3A897DE2E0DD8E1008A4DE0 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				C35208A22DF1F7B0001DB70D /* School */,
@@ -82,6 +155,28 @@
 			productName = School;
 			productReference = C35208A02DF1F7B0001DB70D /* School.app */;
 			productType = "com.apple.product-type.application";
+		};
+		C3A897CA2E0DD8DF008A4DE0 /* SchoolWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C3A897E32E0DD8E1008A4DE0 /* Build configuration list for PBXNativeTarget "SchoolWidgetExtension" */;
+			buildPhases = (
+				C3A897C72E0DD8DF008A4DE0 /* Sources */,
+				C3A897C82E0DD8DF008A4DE0 /* Frameworks */,
+				C3A897C92E0DD8DF008A4DE0 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C3A897D12E0DD8E0008A4DE0 /* SchoolWidget */,
+			);
+			name = SchoolWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = SchoolWidgetExtension;
+			productReference = C3A897CB2E0DD8DF008A4DE0 /* SchoolWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -94,6 +189,9 @@
 				LastUpgradeCheck = 1640;
 				TargetAttributes = {
 					C352089F2DF1F7B0001DB70D = {
+						CreatedOnToolsVersion = 16.4;
+					};
+					C3A897CA2E0DD8DF008A4DE0 = {
 						CreatedOnToolsVersion = 16.4;
 					};
 				};
@@ -113,12 +211,20 @@
 			projectRoot = "";
 			targets = (
 				C352089F2DF1F7B0001DB70D /* School */,
+				C3A897CA2E0DD8DF008A4DE0 /* SchoolWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		C352089E2DF1F7B0001DB70D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C3A897C92E0DD8DF008A4DE0 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -135,7 +241,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C3A897C72E0DD8DF008A4DE0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C3A897DE2E0DD8E1008A4DE0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C3A897CA2E0DD8DF008A4DE0 /* SchoolWidgetExtension */;
+			targetProxy = C3A897DD2E0DD8E1008A4DE0 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		C35208A92DF1F7B1001DB70D /* Debug */ = {
@@ -264,8 +385,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = School/School.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = L7QA44TPN4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -296,8 +418,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = School/School.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = L7QA44TPN4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -323,6 +446,62 @@
 			};
 			name = Release;
 		};
+		C3A897E12E0DD8E1008A4DE0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = SchoolWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = L7QA44TPN4;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SchoolWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SchoolWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = de.designedbycarl.School.SchoolWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C3A897E22E0DD8E1008A4DE0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = SchoolWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 5;
+				DEVELOPMENT_TEAM = L7QA44TPN4;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SchoolWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SchoolWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = de.designedbycarl.School.SchoolWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -340,6 +519,15 @@
 			buildConfigurations = (
 				C35208AC2DF1F7B1001DB70D /* Debug */,
 				C35208AD2DF1F7B1001DB70D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C3A897E32E0DD8E1008A4DE0 /* Build configuration list for PBXNativeTarget "SchoolWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C3A897E12E0DD8E1008A4DE0 /* Debug */,
+				C3A897E22E0DD8E1008A4DE0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
