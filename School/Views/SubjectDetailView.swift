@@ -20,7 +20,7 @@ struct SubjectDetailView: View {
     @State private var gradeTypeToEdit: GradeType?
     @State private var showingDeleteGradeTypeAlert = false
     @State private var gradeTypeToDelete: GradeType?
-    @State private var selectedGradeTypeForNewGrade: GradeType?
+    @State private var gradeTypeForNewGrade: GradeType? // Debug: Item-based sheet trigger
     @State private var gradeTypesUpdateTrigger = UUID() // Debug: Trigger view refresh when grade types change
     @State private var showingFixWeights = false // Debug: Show weight fixing sheet
     @State private var showingFinalGradeSheet = false // Debug: Show final grade entry sheet
@@ -97,11 +97,21 @@ struct SubjectDetailView: View {
                 }
             }
             .sheet(isPresented: $showingAddGrade) {
-                AddGradeView(
+                print("Debug: SubjectDetailView - General sheet opening without preselection")
+                return AddGradeView(
                     subject: subject, 
                     schoolYear: selectedSchoolYear, 
                     semester: selectedSemester,
-                    preselectedGradeType: selectedGradeTypeForNewGrade
+                    preselectedGradeType: nil as GradeType?
+                )
+            }
+            .sheet(item: $gradeTypeForNewGrade) { gradeType in
+                print("Debug: SubjectDetailView - Item-based sheet opening with grade type: \(gradeType.name)")
+                return AddGradeView(
+                    subject: subject, 
+                    schoolYear: selectedSchoolYear, 
+                    semester: selectedSemester,
+                    preselectedGradeType: gradeType as GradeType?
                 )
             }
             .sheet(isPresented: $showingAddGradeType) {
@@ -336,8 +346,10 @@ struct SubjectDetailView: View {
                 .buttonStyle(.plain)
                 // Debug: Quick add grade button for this type
                 Button(action: {
-                    selectedGradeTypeForNewGrade = gradeType
-                    showingAddGrade = true
+                    print("Debug: SubjectDetailView - Button clicked for grade type: \(gradeType.name)")
+                    print("Debug: SubjectDetailView - Setting gradeTypeForNewGrade to: \(gradeType.persistentModelID)")
+                    gradeTypeForNewGrade = gradeType
+                    print("Debug: SubjectDetailView - gradeTypeForNewGrade is now: \(gradeTypeForNewGrade?.name ?? "nil")")
                 }) {
                     Image(systemName: "plus.circle.fill")
                         .foregroundColor(Color(hex: subject.colorHex))

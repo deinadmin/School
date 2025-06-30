@@ -19,7 +19,7 @@ struct AddGradeView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var gradeValue: Double? = nil // Debug: No grade selected by default
-    @State private var selectedGradeType: GradeType = GradeType(name: "Schriftlich", weight: 40, icon: "pencil")
+    @State private var selectedGradeType: GradeType? = nil // Debug: Will be set in onAppear 
     @State private var gradeDate: Date = Date()
     
     // Debug: Computed property to get all available grade types for this subject
@@ -70,13 +70,37 @@ struct AddGradeView: View {
                 }
             }
             .onAppear {
-                // Debug: Set preselected grade type if provided and available
-                if let preselectedType = preselectedGradeType,
-                   allGradeTypes.contains(where: { $0.name == preselectedType.name }) {
-                    selectedGradeType = preselectedType
+                // Debug: Always initialize grade type when view appears to ensure correct preselection
+                print("Debug: onAppear called")
+                print("Debug: preselectedGradeType: \(preselectedGradeType?.name ?? "nil")")
+                print("Debug: Available grade types: \(allGradeTypes.map { $0.name }.joined(separator: ", "))")
+                
+                if let preselectedType = preselectedGradeType {
+                    print("Debug: Looking for match with ID: \(preselectedType.persistentModelID)")
+                    
+                    // Debug: Print all available IDs
+                    for gradeType in allGradeTypes {
+                        print("Debug: Available ID: \(gradeType.persistentModelID) (\(gradeType.name))")
+                    }
+                    
+                    if let matchingType = allGradeTypes.first(where: { $0.persistentModelID == preselectedType.persistentModelID }) {
+                        selectedGradeType = matchingType
+                        print("Debug: ✅ Successfully matched and preselected: \(matchingType.name)")
+                    } else {
+                        print("Debug: ❌ No matching ID found, checking by name...")
+                        // Debug: Fallback to name matching
+                        if let matchingByName = allGradeTypes.first(where: { $0.name == preselectedType.name }) {
+                            selectedGradeType = matchingByName
+                            print("Debug: ✅ Matched by name: \(matchingByName.name)")
+                        } else {
+                            selectedGradeType = allGradeTypes.first
+                            print("Debug: ❌ No match found, fallback to first: \(allGradeTypes.first?.name ?? "none")")
+                        }
+                    }
                 } else if !allGradeTypes.isEmpty {
                     // Debug: Fallback to first available grade type
                     selectedGradeType = allGradeTypes[0]
+                    print("Debug: No preselection provided, fallback to first grade type: \(allGradeTypes[0].name)")
                 }
             }
         }
@@ -185,7 +209,10 @@ struct AddGradeView: View {
     private var gradeTypeSection: some View {
         Section("Art der Bewertung") {
             if !allGradeTypes.isEmpty {
-                Picker("Typ", selection: $selectedGradeType) {
+                Picker("Typ", selection: Binding(
+                    get: { selectedGradeType ?? allGradeTypes.first! },
+                    set: { selectedGradeType = $0 }
+                )) {
                     ForEach(allGradeTypes, id: \.name) { type in
                         HStack {
                             Image(systemName: type.icon)
@@ -217,22 +244,30 @@ struct AddGradeView: View {
     
     // Debug: Validation for save button - requires grade to be selected
     private var isValidGrade: Bool {
-        return GradingSystemHelpers.isValidGrade(gradeValue, for: schoolYear.gradingSystem) && !allGradeTypes.isEmpty
+        return GradingSystemHelpers.isValidGrade(gradeValue, for: schoolYear.gradingSystem) && 
+               selectedGradeType != nil && 
+               !allGradeTypes.isEmpty
     }
     
     // Debug: Save the new grade
     private func saveGrade() {
-        guard let value = gradeValue else { return } // Debug: Should not happen due to validation
+        guard let value = gradeValue,
+              let gradeType = selectedGradeType else { 
+            print("Debug: Cannot save grade - missing value or grade type")
+            return 
+        }
         
         DataManager.createGrade(
             value: value,
-            gradeType: selectedGradeType,
+            gradeType: gradeType,
             date: gradeDate,
             for: subject,
             schoolYear: schoolYear,
             semester: semester,
             in: modelContext
         )
+        
+        print("Debug: Saved grade \(value) for type '\(gradeType.name)'")
         
         // Debug: Update widget after adding new grade
         updateWidget()
