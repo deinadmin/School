@@ -6,6 +6,25 @@
 //
 
 import Foundation
+import SwiftData
+
+/// SwiftData model for storing grading system settings per school year
+/// Debug: This replaces UserDefaults storage to enable iCloud sync
+@Model
+final class SchoolYearGradingSystem {
+    var startYear: Int = 0
+    var gradingSystemRawValue: String = "traditional"
+    
+    init(startYear: Int = 0, gradingSystem: GradingSystem = .traditional) {
+        self.startYear = startYear
+        self.gradingSystemRawValue = gradingSystem.rawValue
+    }
+    
+    /// Computed property to get the grading system enum
+    var gradingSystem: GradingSystem {
+        return GradingSystem(rawValue: gradingSystemRawValue) ?? .traditional
+    }
+}
 
 /// Grading system types used in German schools
 /// Debug: Traditional system (1-6, lower is better) vs Points system (0-15, higher is better)
@@ -86,13 +105,23 @@ struct SchoolYear: Hashable, Codable {
         }
     }
     
-    /// Generate all available school years for picker (2000/2001 to 2099/2100)
-    /// Debug: Returns school years with saved grading systems from UserDefaults
+    /// Generate all available school years for picker (current-20 to current+5)
+    /// Debug: Now requires ModelContext to load saved grading systems from SwiftData
+    static func allAvailableYears(from context: ModelContext) -> [SchoolYear] {
+        let currentYear = Calendar.current.component(.year, from: Date())
+        return (currentYear-20...currentYear+5).map { year in
+            let savedSystem = SchoolYearGradingSystemManager.getGradingSystem(forSchoolYear: year, from: context) ?? .traditional
+            return SchoolYear(startYear: year, gradingSystem: savedSystem)
+        }
+    }
+    
+    /// Legacy method for backwards compatibility - requires context now
+    /// Debug: This method is deprecated, use allAvailableYears(from:) instead
     static var allAvailableYears: [SchoolYear] {
         let currentYear = Calendar.current.component(.year, from: Date())
         return (currentYear-20...currentYear+5).map { year in
-            let savedSystem = UserDefaults.standard.gradingSystem(forSchoolYear: year) ?? .traditional
-            return SchoolYear(startYear: year, gradingSystem: savedSystem)
+            // Debug: Fallback to traditional system when no context available
+            return SchoolYear(startYear: year, gradingSystem: .traditional)
         }
     }
 }
@@ -103,28 +132,148 @@ extension SchoolYear: Comparable {
     }
 }
 
-// MARK: - UserDefaults Extensions for Grading System Persistence
+// MARK: - SwiftData Manager for Grading System Settings
+
+/// Manager for SwiftData operations on grading system settings
+/// Debug: Replaces UserDefaults-based storage for iCloud sync compatibility
+class SchoolYearGradingSystemManager {
+    
+    /// Get grading system for a specific school year from SwiftData
+    /// Debug: Replaces UserDefaults.gradingSystem(forSchoolYear:)
+    static func getGradingSystem(forSchoolYear startYear: Int, from context: ModelContext) -> GradingSystem? {
+        let descriptor = FetchDescriptor<SchoolYearGradingSystem>(
+            predicate: #Predicate<SchoolYearGradingSystem> { setting in
+                setting.startYear == startYear
+            }
+        )
+        
+        do {
+            let settings = try context.fetch(descriptor)
+            let setting = settings.first
+            let system = setting?.gradingSystem
+            if let system = system {
+                print("Debug: Loaded grading system '\(system.displayName)' for school year \(startYear)/\(startYear + 1)")
+            }
+            return system
+        } catch {
+            print("Debug: Error fetching grading system for school year \(startYear): \(error)")
+            return nil
+        }
+    }
+    
+    /// Set grading system for a specific school year in SwiftData
+    /// Debug: Replaces UserDefaults.setGradingSystem(_:forSchoolYear:)
+    static func setGradingSystem(_ system: GradingSystem, forSchoolYear startYear: Int, in context: ModelContext) {
+        // Debug: Check if setting already exists
+        if let existingSetting = getSchoolYearGradingSystemModel(forSchoolYear: startYear, from: context) {
+            existingSetting.gradingSystemRawValue = system.rawValue
+            print("Debug: Updated existing grading system for school year \(startYear)/\(startYear + 1) to '\(system.displayName)'")
+        } else {
+            let newSetting = SchoolYearGradingSystem(startYear: startYear, gradingSystem: system)
+            context.insert(newSetting)
+            print("Debug: Created new grading system setting for school year \(startYear)/\(startYear + 1): '\(system.displayName)'")
+        }
+        
+        do {
+            try context.save()
+            print("Debug: Saved grading system '\(system.displayName)' for school year \(startYear)/\(startYear + 1)")
+        } catch {
+            print("Debug: Error saving grading system: \(error)")
+        }
+    }
+    
+    /// Check if a school year has any saved grading system setting in SwiftData
+    /// Debug: Replaces UserDefaults.hasGradingSystemSetting(forSchoolYear:)
+    static func hasGradingSystemSetting(forSchoolYear startYear: Int, from context: ModelContext) -> Bool {
+        return getSchoolYearGradingSystemModel(forSchoolYear: startYear, from: context) != nil
+    }
+    
+    /// Get the SchoolYearGradingSystem model for a specific year
+    /// Debug: Helper method for internal use
+    private static func getSchoolYearGradingSystemModel(forSchoolYear startYear: Int, from context: ModelContext) -> SchoolYearGradingSystem? {
+        let descriptor = FetchDescriptor<SchoolYearGradingSystem>(
+            predicate: #Predicate<SchoolYearGradingSystem> { setting in
+                setting.startYear == startYear
+            }
+        )
+        
+        do {
+            let settings = try context.fetch(descriptor)
+            return settings.first
+        } catch {
+            print("Debug: Error fetching grading system setting: \(error)")
+            return nil
+        }
+    }
+    
+    /// Migrate existing UserDefaults grading system settings to SwiftData
+    /// Debug: One-time migration helper for existing users
+    static func migrateFromUserDefaults(to context: ModelContext) {
+        let currentYear = Calendar.current.component(.year, from: Date())
+        var migratedCount = 0
+        
+        print("Debug: Starting migration of grading system settings from UserDefaults to SwiftData")
+        
+        // Debug: Check years from current-20 to current+5 for existing settings
+        for year in (currentYear-20)...(currentYear+5) {
+            if let system = UserDefaults.standard.gradingSystem(forSchoolYear: year) {
+                // Debug: Only migrate if not already in SwiftData
+                if !hasGradingSystemSetting(forSchoolYear: year, from: context) {
+                    setGradingSystem(system, forSchoolYear: year, in: context)
+                    migratedCount += 1
+                }
+            }
+        }
+        
+        if migratedCount > 0 {
+            print("Debug: Successfully migrated \(migratedCount) grading system settings from UserDefaults to SwiftData")
+        } else {
+            print("Debug: No grading system settings found in UserDefaults to migrate")
+        }
+    }
+    
+    /// Clean up UserDefaults after successful migration
+    /// Debug: Removes old UserDefaults keys after migration
+    static func cleanupUserDefaultsAfterMigration() {
+        let currentYear = Calendar.current.component(.year, from: Date())
+        var cleanedCount = 0
+        
+        for year in (currentYear-20)...(currentYear+5) {
+            let key = "gradingSystem_\(year)"
+            if UserDefaults.standard.object(forKey: key) != nil {
+                UserDefaults.standard.removeObject(forKey: key)
+                cleanedCount += 1
+            }
+        }
+        
+        if cleanedCount > 0 {
+            print("Debug: Cleaned up \(cleanedCount) UserDefaults keys after migration")
+        }
+    }
+}
+
+// MARK: - Legacy UserDefaults Extensions (deprecated)
 
 extension UserDefaults {
     
-    /// Get grading system for a specific school year
-    /// Debug: Returns saved grading system or nil if not set
+    /// Get grading system for a specific school year (DEPRECATED)
+    /// Debug: This method is deprecated - use SchoolYearGradingSystemManager instead
     func gradingSystem(forSchoolYear startYear: Int) -> GradingSystem? {
         let key = "gradingSystem_\(startYear)"
         guard let systemString = string(forKey: key) else { return nil }
         return GradingSystem(rawValue: systemString)
     }
     
-    /// Set grading system for a specific school year
-    /// Debug: Saves grading system choice persistently
+    /// Set grading system for a specific school year (DEPRECATED)
+    /// Debug: This method is deprecated - use SchoolYearGradingSystemManager instead
     func setGradingSystem(_ system: GradingSystem, forSchoolYear startYear: Int) {
         let key = "gradingSystem_\(startYear)"
         set(system.rawValue, forKey: key)
-        print("Debug: Saved grading system '\(system.displayName)' for school year \(startYear)/\(startYear + 1)")
+        print("Debug: (DEPRECATED) Saved grading system '\(system.displayName)' for school year \(startYear)/\(startYear + 1) to UserDefaults")
     }
     
-    /// Check if a school year has any saved grading system setting
-    /// Debug: Used to determine if we should allow changing the system
+    /// Check if a school year has any saved grading system setting (DEPRECATED)
+    /// Debug: This method is deprecated - use SchoolYearGradingSystemManager instead
     func hasGradingSystemSetting(forSchoolYear startYear: Int) -> Bool {
         let key = "gradingSystem_\(startYear)"
         return object(forKey: key) != nil

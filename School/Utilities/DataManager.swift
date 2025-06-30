@@ -94,22 +94,9 @@ class DataManager {
     
     /// Get all grade types for a specific subject
     static func getGradeTypes(for subject: Subject, from context: ModelContext) -> [GradeType] {
-        // Debug: Fetch all grade types and filter in memory to avoid complex predicate issues
-        let descriptor = FetchDescriptor<GradeType>(
-            sortBy: [SortDescriptor(\.name)]
-        )
-        
-        do {
-            let allGradeTypes = try context.fetch(descriptor)
-            return allGradeTypes.filter { gradeType in
-                // Debug: Use safer comparison to avoid accessing invalidated objects
-                guard let gradeTypeSubject = gradeType.subject else { return false }
-                return gradeTypeSubject.persistentModelID == subject.persistentModelID
-            }
-        } catch {
-            print("Debug: Error fetching grade types for subject '\(subject.name)': \(error)")
-            return []
-        }
+        // Debug: With CloudKit compatibility, use subject's relationship directly
+        let gradeTypes = subject.gradeTypes ?? []
+        return gradeTypes.sorted { $0.name < $1.name }
     }
     
     /// Create a new grade type for a subject
@@ -155,27 +142,20 @@ class DataManager {
     
     /// Get all grades for a specific subject in a specific school year and semester
     static func getGrades(for subject: Subject, schoolYear: SchoolYear, semester: Semester, from context: ModelContext) -> [Grade] {
-        let subjectName = subject.name
-        let schoolYearStart = schoolYear.startYear
+        // Debug: With CloudKit compatibility, use subject's relationship directly if available
+        let subjectGrades = subject.grades ?? []
         
-        // Debug: Use simpler predicate and filter in memory to avoid SwiftData schema issues
-        let descriptor = FetchDescriptor<Grade>(
-            predicate: #Predicate<Grade> { grade in
-                grade.schoolYearStartYear == schoolYearStart
-            },
-            sortBy: [SortDescriptor(\.date)]
-        )
-        
-        do {
-            let allGrades = try context.fetch(descriptor)
-            // Debug: Filter by semester and subject in memory to avoid SwiftData predicate issues
-            return allGrades.filter { grade in
-                guard let gradeSubject = grade.subject else { return false }
-                return grade.semester == semester && gradeSubject.persistentModelID == subject.persistentModelID
+        return subjectGrades.filter { grade in
+            grade.schoolYearStartYear == schoolYear.startYear && (grade.semester ?? .first) == semester
+        }.sorted { grade1, grade2 in
+            // Debug: Sort by date, nil dates go to end
+            if let date1 = grade1.date, let date2 = grade2.date {
+                return date1 < date2
+            } else if grade1.date != nil {
+                return true
+            } else {
+                return false
             }
-        } catch {
-            print("Debug: Error fetching grades: \(error)")
-            return []
         }
     }
     
@@ -195,7 +175,7 @@ class DataManager {
             let allGrades = try context.fetch(descriptor)
             // Debug: Filter by semester in memory to avoid SwiftData enum predicate issues
             return allGrades.filter { grade in
-                grade.semester == semester
+                (grade.semester ?? .first) == semester
             }
         } catch {
             print("Debug: Error fetching grades: \(error)")
@@ -456,7 +436,7 @@ class DataManager {
             let allFinalGrades = try context.fetch(descriptor)
             return allFinalGrades.first { finalGrade in
                 guard let finalGradeSubject = finalGrade.subject else { return false }
-                return finalGrade.semester == semester && finalGradeSubject.persistentModelID == subject.persistentModelID
+                return (finalGrade.semester ?? .first) == semester && finalGradeSubject.persistentModelID == subject.persistentModelID
             }
         } catch {
             print("Debug: Error fetching final grade: \(error)")
@@ -534,28 +514,38 @@ class DataManager {
     // MARK: - Widget Update Helper
     
     /// Update widget after grade changes
-    /// Debug: Uses current user's school year/semester selection from UserDefaults
+    /// Debug: Uses current user's school year/semester selection from UserDefaults with grading system from SwiftData
+    /// Note: CloudKit sync happens automatically - we only update widgets manually for immediate UI response
     private static func updateWidgetAfterGradeChange(from context: ModelContext) {
-        // Debug: Load current user selection from UserDefaults
-        let currentSchoolYear = loadCurrentSchoolYear()
+        // Debug: Load current user selection from UserDefaults with grading system from SwiftData
+        let currentSchoolYear = loadCurrentSchoolYear(from: context)
         let currentSemester = loadCurrentSemester()
         let allSubjects = getAllSubjects(from: context)
         
+        // ✅ Update widget immediately for responsive UI
         WidgetHelper.updateWidget(
             with: allSubjects,
             selectedSchoolYear: currentSchoolYear,
             selectedSemester: currentSemester,
             from: context
         )
+        
+        // ✅ CloudKit sync happens automatically via SwiftData
+        // No manual sync needed - saves battery and network usage
+        print("Debug: Widget updated, CloudKit will sync automatically in background")
     }
     
-    /// Load current school year selection from UserDefaults
-    /// Debug: Uses same keys as ContentView to get user's current selection
-    private static func loadCurrentSchoolYear() -> SchoolYear {
+    /// Load current school year selection from UserDefaults with grading system from SwiftData
+    /// Debug: Uses same keys as ContentView to get user's current selection, but loads grading system from SwiftData
+    private static func loadCurrentSchoolYear(from context: ModelContext) -> SchoolYear {
         if let savedSchoolYear = UserDefaults.standard.getStruct(forKey: "selectedSchoolYear", as: SchoolYear.self) {
-            return savedSchoolYear
+            // Debug: Load the current grading system from SwiftData instead of using saved one
+            let currentGradingSystem = SchoolYearGradingSystemManager.getGradingSystem(forSchoolYear: savedSchoolYear.startYear, from: context) ?? .traditional
+            return SchoolYear(startYear: savedSchoolYear.startYear, gradingSystem: currentGradingSystem)
         } else {
-            return SchoolYear.current
+            let current = SchoolYear.current
+            let currentGradingSystem = SchoolYearGradingSystemManager.getGradingSystem(forSchoolYear: current.startYear, from: context) ?? .traditional
+            return SchoolYear(startYear: current.startYear, gradingSystem: currentGradingSystem)
         }
     }
     

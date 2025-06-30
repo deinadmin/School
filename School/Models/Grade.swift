@@ -12,18 +12,18 @@ import SwiftData
 /// Debug: Grades are specific to school year and semester, but subjects are general
 @Model
 final class Grade {
-    var value: Double
+    var value: Double = 0.0
     var date: Date?
-    var schoolYearStartYear: Int // Debug: Grade belongs to specific school year
-    var semester: Semester       // Debug: Grade belongs to specific semester
+    var schoolYearStartYear: Int = 0 // Debug: Grade belongs to specific school year
+    var semester: Semester? // Debug: Grade belongs to specific semester (CloudKit requires optional or no default)
     
-    // Debug: SwiftData relationship to subject (inverse relationship)
+    // Debug: SwiftData relationship to subject (CloudKit requires optional relationships)
     var subject: Subject?
     
-    // Debug: SwiftData relationship to grade type (inverse relationship)
+    // Debug: SwiftData relationship to grade type (CloudKit requires optional relationships)
     var gradeType: GradeType?
     
-    init(value: Double, gradeType: GradeType, date: Date? = nil, schoolYearStartYear: Int, semester: Semester, subject: Subject) {
+    init(value: Double = 0.0, gradeType: GradeType? = nil, date: Date? = nil, schoolYearStartYear: Int = 0, semester: Semester = .first, subject: Subject? = nil) {
         self.value = value
         self.gradeType = gradeType
         self.date = date

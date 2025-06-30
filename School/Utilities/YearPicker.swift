@@ -74,7 +74,7 @@ struct CardBasedSchoolPicker: View {
                         ScrollViewReader { proxy in
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
-                                    ForEach(SchoolYear.allAvailableYears, id: \.startYear) { year in
+                                    ForEach(SchoolYear.allAvailableYears(from: modelContext), id: \.startYear) { year in
                                         YearChip(
                                             year: year,
                                             isSelected: selectedSchoolYear.startYear == year.startYear,
@@ -224,8 +224,8 @@ struct CardBasedSchoolPicker: View {
             print("Debug: Successfully converted \(conversionResult.convertedCount) grades to \(newSystem.displayName)")
         }
         
-        // Debug: Save the grading system change
-        UserDefaults.standard.setGradingSystem(newSystem, forSchoolYear: selectedSchoolYear.startYear)
+        // Debug: Save the grading system change to SwiftData instead of UserDefaults
+        SchoolYearGradingSystemManager.setGradingSystem(newSystem, forSchoolYear: selectedSchoolYear.startYear, in: modelContext)
         
         // Debug: Update the selected school year with the new system
         let updatedSchoolYear = SchoolYear(startYear: selectedSchoolYear.startYear, gradingSystem: newSystem)

@@ -31,8 +31,11 @@ class WidgetHelper {
         
         let subjectCount = subjects.count
         let totalGrades = subjects.reduce(0) { total, subject in
-            let grades = DataManager.getGrades(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: context)
-            return total + grades.count
+            let grades = subject.grades ?? []
+            let filteredGrades = grades.filter { grade in
+                grade.schoolYearStartYear == selectedSchoolYear.startYear && (grade.semester ?? .first) == selectedSemester
+            }
+            return total + filteredGrades.count
         }
         
         print("Debug: Updating widget - Average: \(overallAverage?.description ?? "nil"), Subjects: \(subjectCount), Grades: \(totalGrades)")
@@ -104,8 +107,11 @@ class WidgetHelper {
         
         let subjectCount = subjects.count
         let totalGrades = subjects.reduce(0) { total, subject in
-            let grades = DataManager.getGrades(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: context)
-            return total + grades.count
+            let grades = subject.grades ?? []
+            let filteredGrades = grades.filter { grade in
+                grade.schoolYearStartYear == selectedSchoolYear.startYear && (grade.semester ?? .first) == selectedSemester
+            }
+            return total + filteredGrades.count
         }
         
         print("2. Current App Data:")

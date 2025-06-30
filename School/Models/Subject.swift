@@ -13,23 +13,26 @@ import SwiftData
 /// Debug: Subject exists independently of school years - only grades are year/semester specific
 @Model
 final class Subject {
-    var name: String
-    var colorHex: String
-    var icon: String
+    var name: String = ""
+    var colorHex: String = "#007AFF" 
+    var icon: String = "book.fill"
     
-    // Debug: SwiftData relationship to grades
-    @Relationship(deleteRule: .cascade) var grades: [Grade] = []
+    // Debug: SwiftData relationship to grades (CloudKit requires optional relationships)
+    @Relationship(deleteRule: .cascade, inverse: \Grade.subject) var grades: [Grade]?
     
-    // Debug: SwiftData relationship to grade types (each subject has its own grade types)
-    @Relationship(deleteRule: .cascade) var gradeTypes: [GradeType] = []
+    // Debug: SwiftData relationship to grade types (CloudKit requires optional relationships with inverse)
+    @Relationship(deleteRule: .cascade, inverse: \GradeType.subject) var gradeTypes: [GradeType]?
     
-    // Debug: SwiftData relationship to final grades (manual end-of-semester grades)
-    @Relationship(deleteRule: .cascade) var finalGrades: [FinalGrade] = []
+    // Debug: SwiftData relationship to final grades (CloudKit requires optional relationships)
+    @Relationship(deleteRule: .cascade, inverse: \FinalGrade.subject) var finalGrades: [FinalGrade]?
     
-    init(name: String, colorHex: String, icon: String) {
+    init(name: String = "", colorHex: String = "#007AFF", icon: String = "book.fill") {
         self.name = name
         self.colorHex = colorHex
         self.icon = icon
+        self.grades = []
+        self.gradeTypes = []
+        self.finalGrades = []
     }
 }
 
@@ -37,14 +40,14 @@ final class Subject {
 /// Debug: Overrides calculated average when set, used for report card grade calculation
 @Model
 final class FinalGrade {
-    var value: Double
-    var schoolYearStartYear: Int // Debug: Final grade belongs to specific school year
-    var semester: Semester       // Debug: Final grade belongs to specific semester
+    var value: Double = 0.0
+    var schoolYearStartYear: Int = 0 // Debug: Final grade belongs to specific school year
+    var semester: Semester? // Debug: Final grade belongs to specific semester (CloudKit requires optional or no default)
     
-    // Debug: SwiftData relationship to subject (inverse relationship)
+    // Debug: SwiftData relationship to subject (CloudKit requires optional relationships)
     var subject: Subject?
     
-    init(value: Double, schoolYearStartYear: Int, semester: Semester, subject: Subject) {
+    init(value: Double = 0.0, schoolYearStartYear: Int = 0, semester: Semester = .first, subject: Subject? = nil) {
         self.value = value
         self.schoolYearStartYear = schoolYearStartYear
         self.semester = semester

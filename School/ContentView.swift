@@ -176,6 +176,7 @@ struct ContentView: View {
                 
                 VStack(alignment: .leading) {
                     Spacer()
+                    
                     CardBasedSchoolPicker(selectedSchoolYear: $selectedSchoolYear, selectedSemester: $selectedSemester)
                     HStack {
                         Button(action: {
@@ -305,22 +306,28 @@ struct ContentView: View {
     /// Debug: This ensures the UI updates immediately if the grading system for the current year was changed by an import.
     private func refreshCurrentSelection() {
         print("Debug: Refreshing current school year selection to reflect potential data changes.")
-        let refreshedSystem = UserDefaults.standard.gradingSystem(forSchoolYear: selectedSchoolYear.startYear) ?? selectedSchoolYear.gradingSystem
+        let refreshedSystem = SchoolYearGradingSystemManager.getGradingSystem(forSchoolYear: selectedSchoolYear.startYear, from: modelContext) ?? selectedSchoolYear.gradingSystem
         let refreshedSchoolYear = SchoolYear(startYear: selectedSchoolYear.startYear, gradingSystem: refreshedSystem)
         
         // This assignment will trigger a UI update for views depending on selectedSchoolYear
         selectedSchoolYear = refreshedSchoolYear
     }
     
-    /// Load saved school year and semester selection from UserDefaults
-    /// Debug: Restores user's last selected period when app restarts
+    /// Load saved school year and semester selection from UserDefaults with grading system from SwiftData
+    /// Debug: Restores user's last selected period when app restarts, loading grading system from SwiftData
     private func loadSelectedPeriod() {
-        // Debug: Load saved school year using UserDefaults extension
+        // Debug: Load saved school year using UserDefaults extension, but get grading system from SwiftData
         if let savedSchoolYear = UserDefaults.standard.getStruct(forKey: selectedSchoolYearKey, as: SchoolYear.self) {
-            selectedSchoolYear = savedSchoolYear
-            print("Debug: Loaded saved school year: \(savedSchoolYear.displayName)")
+            // Debug: Load the current grading system from SwiftData instead of using saved one
+            let currentGradingSystem = SchoolYearGradingSystemManager.getGradingSystem(forSchoolYear: savedSchoolYear.startYear, from: modelContext) ?? .traditional
+            selectedSchoolYear = SchoolYear(startYear: savedSchoolYear.startYear, gradingSystem: currentGradingSystem)
+            print("Debug: Loaded saved school year: \(selectedSchoolYear.displayName) with grading system: \(currentGradingSystem.displayName)")
         } else {
-            print("Debug: No saved school year found, using current: \(selectedSchoolYear.displayName)")
+            // Debug: No saved school year, use current year with grading system from SwiftData
+            let current = SchoolYear.current
+            let currentGradingSystem = SchoolYearGradingSystemManager.getGradingSystem(forSchoolYear: current.startYear, from: modelContext) ?? .traditional
+            selectedSchoolYear = SchoolYear(startYear: current.startYear, gradingSystem: currentGradingSystem)
+            print("Debug: No saved school year found, using current: \(selectedSchoolYear.displayName) with grading system: \(currentGradingSystem.displayName)")
         }
         
         // Debug: Load saved semester using UserDefaults extension
@@ -603,6 +610,9 @@ struct SettingsView: View {
                     // Debug: Settings sections
                     settingsSection
                     
+                    // Debug: CloudKit Sync section
+                    cloudKitSyncSection
+                    
                     // Debug: About section
                     aboutSection
                     
@@ -758,6 +768,17 @@ struct SettingsView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(Color(.systemGray5), lineWidth: 1)
             )
+        }
+    }
+    
+    // Debug: CloudKit Sync section with iCloud integration
+    private var cloudKitSyncSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("iCloud Synchronisation")
+                .font(.headline)
+                .fontWeight(.bold)
+            
+            CloudKitSyncView()
         }
     }
     
@@ -1161,7 +1182,7 @@ struct SettingsView: View {
                 
                 DispatchQueue.main.async {
                     // Debug: Restore original grading systems from backup to UserDefaults
-                    self.setGradingSystemsInUserDefaults(importData.schoolYearGradingSystems)
+                                            self.setGradingSystemsInSwiftData(importData.schoolYearGradingSystems)
                     
                     self.isImporting = false
                     print("Debug: Data imported successfully, original grading systems restored")
@@ -1183,7 +1204,7 @@ struct SettingsView: View {
                     
                     DispatchQueue.main.async {
                         // Debug: Restore original grading systems from backup to UserDefaults
-                        self.setGradingSystemsInUserDefaults(importData.schoolYearGradingSystems)
+                        self.setGradingSystemsInSwiftData(importData.schoolYearGradingSystems)
                         
                         self.isImporting = false
                         print("Debug: Data imported successfully with fallback decoder, original grading systems restored")
@@ -1200,10 +1221,10 @@ struct SettingsView: View {
         }
     }
     
-    /// Set grading systems in UserDefaults for all school years
-    /// Debug: Updates UserDefaults with grading system mappings from import data
-    private func setGradingSystemsInUserDefaults(_ gradingSystems: [String: String]) {
-        print("Debug: Setting grading systems in UserDefaults for \(gradingSystems.count) school years")
+    /// Set grading systems in SwiftData for all school years
+    /// Debug: Updates SwiftData with grading system mappings from import data
+    private func setGradingSystemsInSwiftData(_ gradingSystems: [String: String]) {
+        print("Debug: Setting grading systems in SwiftData for \(gradingSystems.count) school years")
         print("Debug: Grading systems to set: \(gradingSystems)")
         
         var successCount = 0
@@ -1214,7 +1235,7 @@ struct SettingsView: View {
                 continue
             }
             
-            UserDefaults.standard.setGradingSystem(gradingSystem, forSchoolYear: schoolYearStart)
+            SchoolYearGradingSystemManager.setGradingSystem(gradingSystem, forSchoolYear: schoolYearStart, in: modelContext)
             successCount += 1
             print("Debug: ✅ Set grading system \(gradingSystem.displayName) for school year \(schoolYearStart)/\(schoolYearStart + 1)")
         }
@@ -1223,7 +1244,7 @@ struct SettingsView: View {
         
         // Debug: Also handle school years that might not have explicit grading system info
         if gradingSystems.isEmpty {
-            print("Debug: No grading systems in backup, keeping current UserDefaults settings")
+            print("Debug: No grading systems in backup, keeping current SwiftData settings")
         }
     }
 }
@@ -1314,28 +1335,28 @@ class DataExporter {
         var schoolYearGradingSystems: [String: String] = [:]
 
         // 1. Export systems for all years with an explicit setting, covering configured-but-empty years.
-        let allYearsToCheck = SchoolYear.allAvailableYears
+        let allYearsToCheck = SchoolYear.allAvailableYears(from: context)
         for schoolYear in allYearsToCheck {
-            if UserDefaults.standard.hasGradingSystemSetting(forSchoolYear: schoolYear.startYear) {
-                let gradingSystem = UserDefaults.standard.gradingSystem(forSchoolYear: schoolYear.startYear) ?? .traditional
+            if SchoolYearGradingSystemManager.hasGradingSystemSetting(forSchoolYear: schoolYear.startYear, from: context) {
+                let gradingSystem = SchoolYearGradingSystemManager.getGradingSystem(forSchoolYear: schoolYear.startYear, from: context) ?? .traditional
                 schoolYearGradingSystems[String(schoolYear.startYear)] = gradingSystem.rawValue
             }
         }
 
         // 2. Safety net: Ensure any year with grades is included, even if outside the 'allAvailableYears' range.
         for subject in subjects {
-            for grade in subject.grades {
+            for grade in subject.grades ?? [] {
                 let year = grade.schoolYearStartYear
                 if schoolYearGradingSystems[String(year)] == nil {
-                    let gradingSystem = UserDefaults.standard.gradingSystem(forSchoolYear: year) ?? .traditional
+                    let gradingSystem = SchoolYearGradingSystemManager.getGradingSystem(forSchoolYear: year, from: context) ?? .traditional
                     schoolYearGradingSystems[String(year)] = gradingSystem.rawValue
                     print("Debug: Exporting grading system for out-of-range year \(year) with grades: \(gradingSystem.rawValue)")
                 }
             }
-            for finalGrade in subject.finalGrades {
+            for finalGrade in subject.finalGrades ?? [] {
                 let year = finalGrade.schoolYearStartYear
                 if schoolYearGradingSystems[String(year)] == nil {
-                    let gradingSystem = UserDefaults.standard.gradingSystem(forSchoolYear: year) ?? .traditional
+                    let gradingSystem = SchoolYearGradingSystemManager.getGradingSystem(forSchoolYear: year, from: context) ?? .traditional
                     schoolYearGradingSystems[String(year)] = gradingSystem.rawValue
                     print("Debug: Exporting grading system for out-of-range year \(year) with final grades: \(gradingSystem.rawValue)")
                 }
@@ -1347,27 +1368,27 @@ class DataExporter {
                 name: subject.name,
                 colorHex: subject.colorHex,
                 icon: subject.icon,
-                grades: subject.grades.map { grade in
+                grades: (subject.grades ?? []).map { grade in
                     ExportedGrade(
                         value: grade.value,
                         date: grade.date,
                         schoolYearStartYear: grade.schoolYearStartYear,
-                        semester: grade.semester.rawValue,
+                        semester: (grade.semester ?? .first).rawValue,
                         gradeTypeName: grade.gradeType?.name ?? "Unknown"
                     )
                 },
-                gradeTypes: subject.gradeTypes.map { gradeType in
+                gradeTypes: (subject.gradeTypes ?? []).map { gradeType in
                     ExportedGradeType(
                         name: gradeType.name,
                         weight: gradeType.weight,
                         icon: gradeType.icon
                     )
                 },
-                finalGrades: subject.finalGrades.map { finalGrade in
+                finalGrades: (subject.finalGrades ?? []).map { finalGrade in
                     ExportedFinalGrade(
                         value: finalGrade.value,
                         schoolYearStartYear: finalGrade.schoolYearStartYear,
-                        semester: finalGrade.semester.rawValue
+                        semester: (finalGrade.semester ?? .first).rawValue
                     )
                 }
             )
