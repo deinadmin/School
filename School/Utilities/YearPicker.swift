@@ -55,6 +55,8 @@ struct CardBasedSchoolPicker: View {
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 }
                 .padding()
+                .frame(maxWidth: .infinity, alignment: .leading) // Debug: Make entire card area tappable
+                .contentShape(Rectangle()) // Debug: Ensure entire button area is tappable
             }
             .buttonStyle(PlainButtonStyle())
             
