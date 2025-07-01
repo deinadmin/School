@@ -8,6 +8,48 @@
 import SwiftUI
 import Foundation
 
+/// Performance level enumeration for visual indicators
+/// Debug: Used to categorize academic performance for UI elements like badges and colors
+enum PerformanceLevel {
+    case excellent, good, satisfactory, sufficient, poor, insufficient, none
+    
+    var title: String {
+        switch self {
+        case .excellent: return "Sehr gut"       // 1 (Sehr gut)
+        case .good: return "Gut"                 // 2 (Gut)
+        case .satisfactory: return "Befriedigend" // 3 (Befriedigend)
+        case .sufficient: return "Ausreichend"    // 4 (Ausreichend)
+        case .poor: return "Mangelhaft"          // 5 (Mangelhaft)
+        case .insufficient: return "Ungenügend"   // 6 (Ungenügend)
+        case .none: return "Keine Noten"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .excellent: return "star.fill"
+        case .good: return "hand.thumbsup.fill"
+        case .satisfactory: return "checkmark.circle.fill"
+        case .sufficient: return "minus.circle.fill"
+        case .poor: return "exclamationmark.circle.fill"
+        case .insufficient: return "xmark.circle.fill"
+        case .none: return "questionmark.circle.fill"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .excellent: return .green
+        case .good: return .blue
+        case .satisfactory: return .cyan
+        case .sufficient: return .orange
+        case .poor: return .red
+        case .insufficient: return .pink
+        case .none: return .gray
+        }
+    }
+}
+
 /// Helper functions for working with different grading systems
 /// Debug: Provides display, color, and validation functions for both traditional (1-6) and points (0-15) systems
 class GradingSystemHelpers {
@@ -89,14 +131,15 @@ class GradingSystemHelpers {
     }
     
     /// Points system colors (15 = green best, 0 = pink worst)
+    /// Debug: Ranges aligned with traditional system equivalents to maintain color consistency
     private static func pointsGradeColor(for value: Double) -> Color {
         switch value {
-        case 13...15: return .green      // Debug: 13-15 points (excellent)
-        case 10..<13: return .blue       // Debug: 10-12 points (good)
-        case 7..<10: return .cyan        // Debug: 7-9 points (satisfactory)
-        case 4..<7: return .orange       // Debug: 4-6 points (sufficient)
-        case 1..<4: return .red          // Debug: 1-3 points (poor)
-        case 0..<1: return .pink         // Debug: 0 points (insufficient)
+        case 12...15: return .green      // Debug: 12-15 points (excellent = 1+ to 1-)
+        case 9..<12: return .blue        // Debug: 9-11 points (good = 2+ to 2-)
+        case 6..<9: return .cyan         // Debug: 6-8 points (satisfactory = 3+ to 3-)
+        case 3..<6: return .orange       // Debug: 3-5 points (sufficient = 4+ to 4-)
+        case 0.001..<3: return .red      // Debug: 1-2 points (poor = 5+ to 5-)
+        case 0...0: return .pink         // Debug: 0 points (insufficient = 6)
         default: return .gray
         }
     }
@@ -164,6 +207,45 @@ class GradingSystemHelpers {
     }
     
     // MARK: - Performance Evaluation Functions
+    
+    /// Get performance level based on overall average and grading system
+    /// Debug: Returns structured performance level for UI indicators and badges
+    static func getPerformanceLevel(for average: Double, system: GradingSystem) -> PerformanceLevel {
+        switch system {
+        case .traditional:
+            return getTraditionalPerformanceLevel(for: average)
+        case .points:
+            return getPointsPerformanceLevel(for: average)
+        }
+    }
+    
+    /// Traditional system performance levels (lower values = better)
+    /// Debug: Angepasst, um konsistent mit den Notenstufen des deutschen Schulsystems zu sein
+    private static func getTraditionalPerformanceLevel(for average: Double) -> PerformanceLevel {
+        switch average {
+        case 0.7..<1.7: return .excellent    // 1+ bis 1-: Sehr gut
+        case 1.7..<2.7: return .good         // 2+ bis 2-: Gut
+        case 2.7..<3.7: return .satisfactory // 3+ bis 3-: Befriedigend
+        case 3.7..<4.7: return .sufficient   // 4+ bis 4-: Ausreichend
+        case 4.7..<5.7: return .poor         // 5+ bis 5-: Mangelhaft
+        case 5.7...6.0: return .insufficient // 6: Ungenügend
+        default: return .none
+        }
+    }
+    
+    /// Points system performance levels (higher values = better)
+    /// Debug: Angepasst, um konsistent mit den traditionellen Notenstufen zu sein
+    private static func getPointsPerformanceLevel(for average: Double) -> PerformanceLevel {
+        switch average {
+        case 12...15: return .excellent     // 15-12 Punkte: Sehr gut (1+ bis 1-)
+        case 9..<12: return .good           // 11-9 Punkte: Gut (2+ bis 2-)
+        case 6..<9: return .satisfactory    // 8-6 Punkte: Befriedigend (3+ bis 3-)
+        case 3..<6: return .sufficient      // 5-3 Punkte: Ausreichend (4+ bis 4-)
+        case 0.001..<3: return .poor        // 2-1 Punkte: Mangelhaft (5+ bis 5-)
+        case 0...0: return .insufficient    // 0 Punkte: Ungenügend (6)
+        default: return .none
+        }
+    }
     
     /// Get performance message based on overall average and grading system
     /// Debug: Adapted messages for different systems since scales are inverted

@@ -364,7 +364,7 @@ struct ContentView: View {
     }
 }
 
-// Debug: Statistics card showing overall performance metrics
+// Debug: Enhanced statistics card with unique design to distinguish from subject cards
 struct StatisticsCardView: View {
     let subjects: [Subject]
     let selectedSchoolYear: SchoolYear
@@ -402,68 +402,183 @@ struct StatisticsCardView: View {
         return (average, allGrades.count, subjectsWithGrades)
     }
     
+    // Debug: Performance level for visual indicators
+    private var performanceLevel: PerformanceLevel {
+        guard let average = overallStatistics.average else { return .none }
+        return GradingSystemHelpers.getPerformanceLevel(for: average, system: selectedSchoolYear.gradingSystem)
+    }
+    
     var body: some View {
-        HStack {
-            // Debug: Statistics icon
-            Image(systemName: "chart.bar.fill")
-                .foregroundColor(.accentColor)
-                .font(.title)
-                .frame(width: 60, height: 60)
-                .background(Color.accentColor.opacity(0.2))
-                .cornerRadius(8)
-            
-            VStack(alignment: .leading) {
-                Text("Schnitt")
-                    .font(.title2)
-                    .bold()
-                Text("\(selectedSchoolYear.displayName) - \(selectedSemester.displayName)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            VStack(alignment: .trailing, spacing: 4) {
-                // Debug: Overall average
-                if let average = overallStatistics.average {
-                    Text("⌀ \(GradingSystemHelpers.gradeDisplayText(for: average, system: selectedSchoolYear.gradingSystem))")
-                        .font(.title2)
+        VStack(spacing: 16) {
+            // Debug: Header with period info and performance indicator
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Gesamtschnitt")
+                        .font(.headline)
                         .fontWeight(.bold)
-                        .foregroundColor(GradingSystemHelpers.gradeColor(for: average, system: selectedSchoolYear.gradingSystem))
-                } else {
-                    Text("Keine Noten")
-                        .font(.caption)
+                        .foregroundColor(.primary)
+                    
+                    Text("\(selectedSchoolYear.displayName) • \(selectedSemester.displayName)")
+                        .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
                 
-                HStack {
-                    // Debug: Number of subjects with grades
-                    if overallStatistics.subjectsWithGrades > 0 {
-                        Text("\(overallStatistics.subjectsWithGrades) Fächer")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                Spacer()
+                
+                // Debug: Performance badge
+                performanceBadge
+            }
+            
+            // Debug: Main statistics row with prominent average display
+            HStack(alignment: .center, spacing: 20) {
+                // Debug: Large average display with circular background
+                VStack(spacing: 4) {
+                    if let average = overallStatistics.average {
+                        Text(GradingSystemHelpers.gradeDisplayText(for: average, system: selectedSchoolYear.gradingSystem))
+                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                    } else {
+                        Image(systemName: "questionmark")
+                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
                     }
-                    
-                    // Debug: Total grades count
-                    if overallStatistics.totalGrades > 0 {
-                        Text("\(overallStatistics.totalGrades) Noten")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
+
                 }
+                .frame(width: 80, height: 80)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(
+                            LinearGradient(
+                                colors: gradientColors,
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                )
+
+
+                VStack(alignment: .leading) {
+                    Text("\(overallStatistics.subjectsWithGrades) \(overallStatistics.subjectsWithGrades == 1 ? "Fach" : "Fächer") mit Noten")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                        .bold()
+
+                    Text("\(overallStatistics.totalGrades) \(overallStatistics.totalGrades == 1 ? "Note" : "Noten")")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                        .bold()
+                }
+
+                Spacer()
+                
+                
             }
         }
-        .padding()
+        .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.systemBackground))
-                .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+            RoundedRectangle(cornerRadius: 20)
+                .fill(
+                    Color(.systemBackground)
+                )
+                .shadow(color: Color.black.opacity(0.12), radius: 16, y: 6)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color(.systemGray5), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(
+                    LinearGradient(
+                        colors: gradientColors,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.5
+                )
         )
         .id(roundPointAverages) // Debug: Force UI update when rounding setting changes
+    }
+    
+    // Debug: Performance badge showing current level with consistent color
+    private var performanceBadge: some View {
+        HStack(spacing: 6) {
+            Image(systemName: performanceLevel.icon)
+                .font(.caption)
+                .foregroundColor(badgeColor)
+            
+            Text(performanceLevel.title)
+                .font(.caption2)
+                .fontWeight(.medium)
+                .foregroundColor(badgeColor)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(badgeColor.opacity(0.15))
+        )
+        .overlay(
+            Capsule()
+                .stroke(badgeColor.opacity(0.3), lineWidth: 1)
+        )
+    }
+    
+    // Debug: Badge color that matches grade color
+    private var badgeColor: Color {
+        if let average = overallStatistics.average {
+            return GradingSystemHelpers.gradeColor(for: average, system: selectedSchoolYear.gradingSystem)
+        } else {
+            return .gray
+        }
+    }
+    
+    // Debug: Individual statistic row component
+    private func statisticRow(icon: String, title: String, value: String, subtitle: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundColor(iconColor)
+                .frame(width: 20)
+            
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text(value)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                    
+                    Text(title)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+    
+    // Debug: Icon color that matches grade color
+    private var iconColor: Color {
+        if let average = overallStatistics.average {
+            return GradingSystemHelpers.gradeColor(for: average, system: selectedSchoolYear.gradingSystem)
+        } else {
+            return .gray
+        }
+    }
+    
+    // Debug: Dynamic gradient colors based on performance
+    private var gradientColors: [Color] {
+        if let average = overallStatistics.average {
+            let gradeColor = GradingSystemHelpers.gradeColor(for: average, system: selectedSchoolYear.gradingSystem)
+            return [
+                gradeColor,
+                gradeColor.opacity(0.8)
+            ]
+        } else {
+            return [
+                Color.gray,
+                Color.gray.opacity(0.8)
+            ]
+        }
     }
 }
 
