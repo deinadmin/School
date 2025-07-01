@@ -147,7 +147,6 @@ struct ContentView: View {
                                         .font(.title3)
                                         .foregroundColor(.primary)
                                         .padding()
-                                        .background(Color(.systemBackground))
                                         .background(
                                             RoundedRectangle(cornerRadius: 16)
                                                 .fill(Color(.systemBackground))
@@ -164,7 +163,7 @@ struct ContentView: View {
                                 Image("StudentCharacter")
                                     .resizable()
                                     .scaledToFit()
-                                    .frame(height: 250)
+                                    .frame(height: 200)
                                 
                             }
                             

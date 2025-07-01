@@ -169,7 +169,7 @@ class GradingSystemHelpers {
     /// Debug: Adapted messages for different systems since scales are inverted
     static func getPerformanceMessage(for average: Double?, system: GradingSystem) -> String {
         guard let average = average else {
-            return "Viel Erfolg und Gute Noten!"
+            return "Hey, lass uns gemeinsam durchstarten! 🚀"
         }
         
         switch system {
@@ -184,15 +184,35 @@ class GradingSystemHelpers {
     private static func getTraditionalPerformanceMessage(for average: Double) -> String {
         switch average {
         case 0.7..<2.5:
-            return "Sehr gut, weiter so!"
+            let messages = [
+                "Hervorragend! Du bist ein echtes Talent! ⭐",
+                "Fantastische Leistung! Du zeigst, was in dir steckt! 🌟"
+            ]
+            return messages.randomElement() ?? messages[0]
         case 2.5..<3.5:
-            return "Nicht schlecht, aber noch Luft nach oben!"
+            let messages = [
+                "Solide Arbeit! Mit etwas mehr Einsatz schaffst du noch mehr! 💪",
+                "Guter Grundstein! Du bist auf dem richtigen Weg nach oben! 🚀"
+            ]
+            return messages.randomElement() ?? messages[0]
         case 3.5..<4.5:
-            return "Gib ein bisschen mehr Gas!"
+            let messages = [
+                "Du packst das! Jede Anstrengung zahlt sich aus! 🎯",
+                "Bleib dran! Der Erfolg ist näher als du denkst! ⚡"
+            ]
+            return messages.randomElement() ?? messages[0]
         case 4.5...6.0:
-            return "Das kannst du eigentlich besser!"
+            let messages = [
+                "Jeder Anfang ist schwer! Du schaffst die Wende! 🔄",
+                "Nicht aufgeben! In dir steckt mehr, als du glaubst! 💎"
+            ]
+            return messages.randomElement() ?? messages[0]
         default:
-            return "Viel Erfolg und Gute Noten!"
+            let messages = [
+                "Los geht's! Deine Erfolgsgeschichte beginnt jetzt! 🌅",
+                "Auf zu neuen Höhen! Jede Note bringt dich weiter! 🎈"
+            ]
+            return messages.randomElement() ?? messages[0]
         }
     }
     
@@ -200,15 +220,35 @@ class GradingSystemHelpers {
     private static func getPointsPerformanceMessage(for average: Double) -> String {
         switch average {
         case 12...15:
-            return "Sehr gut, weiter so!"
+            let messages = [
+                "Hervorragend! Du bist ein echtes Talent! ⭐",
+                "Fantastische Leistung! Du zeigst, was in dir steckt! 🌟"
+            ]
+            return messages.randomElement() ?? messages[0]
         case 8..<12:
-            return "Nicht schlecht, aber noch Luft nach oben!"
+            let messages = [
+                "Solide Arbeit! Mit etwas mehr Einsatz schaffst du noch mehr! 💪",
+                "Guter Grundstein! Du bist auf dem richtigen Weg nach oben! 🚀"
+            ]
+            return messages.randomElement() ?? messages[0]
         case 4..<8:
-            return "Gib ein bisschen mehr Gas!"
+            let messages = [
+                "Du packst das! Jede Anstrengung zahlt sich aus! 🎯",
+                "Bleib dran! Der Erfolg ist näher als du denkst! ⚡️"
+            ]
+            return messages.randomElement() ?? messages[0]
         case 0..<4:
-            return "Das kannst du eigentlich besser!"
+            let messages = [
+                "Jeder Anfang ist schwer! Du schaffst die Wende! 🔄",
+                "Nicht aufgeben! In dir steckt mehr, als du glaubst! 💎"
+            ]
+            return messages.randomElement() ?? messages[0]
         default:
-            return "Viel Erfolg und Gute Noten!"
+            let messages = [
+                "Los geht's! Deine Erfolgsgeschichte beginnt jetzt! 🌅",
+                "Auf zu neuen Höhen! Jede Note bringt dich weiter! 🎈"
+            ]
+            return messages.randomElement() ?? messages[0]
         }
     }
     
