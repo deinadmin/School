@@ -1035,8 +1035,8 @@ struct SettingsView: View {
         }
         
         if !UserDefaults.standard.hasKey("showMotivationalCharacter") {
-            showMotivationalCharacter = false
-            UserDefaults.standard.set(false, forKey: "showMotivationalCharacter")
+            showMotivationalCharacter = true
+            UserDefaults.standard.set(true, forKey: "showMotivationalCharacter")
         }
         
         print("Debug: Loaded settings - Round points: \(roundPointAverages), Show character: \(showMotivationalCharacter)")
