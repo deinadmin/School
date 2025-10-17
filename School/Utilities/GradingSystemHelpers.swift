@@ -206,6 +206,56 @@ class GradingSystemHelpers {
         }
     }
     
+    /// Get grade values organized in rows for final grade selection (only full grades for traditional system)
+    /// Debug: Traditional system: 2 rows of 3 full grades (1-6) without plus/minus variants, Points system: same as getGradeRows
+    /// Returns: Array of (row identifier, array of (value, display, color))
+    static func getFullGradeRowsForFinalGrade(for system: GradingSystem) -> [(Int, [(value: Double, display: String, color: Color)])] {
+        switch system {
+        case .traditional:
+            // Debug: Organize in 2 rows with 3 grades each for compact display, each with individual color
+            return [
+                (1, [
+                    (1.0, "1", .green),
+                    (2.0, "2", .blue),
+                    (3.0, "3", .cyan)
+                ]),
+                (2, [
+                    (4.0, "4", .orange),
+                    (5.0, "5", .red),
+                    (6.0, "6", .pink)
+                ])
+            ]
+        case .points:
+            // For points system, return all values as final grades can be any point value
+            return [
+                (1, [
+                    (15.0, "15 P", .green),
+                    (14.0, "14 P", .green),
+                    (13.0, "13 P", .green),
+                    (12.0, "12 P", .green)
+                ]),
+                (2, [
+                    (11.0, "11 P", .blue),
+                    (10.0, "10 P", .blue),
+                    (9.0, "9 P", .blue),
+                    (8.0, "8 P", .blue)
+                ]),
+                (3, [
+                    (7.0, "7 P", .cyan),
+                    (6.0, "6 P", .cyan),
+                    (5.0, "5 P", .cyan),
+                    (4.0, "4 P", .cyan)
+                ]),
+                (4, [
+                    (3.0, "3 P", .orange),
+                    (2.0, "2 P", .orange),
+                    (1.0, "1 P", .orange),
+                    (0.0, "0 P", .orange)
+                ])
+            ]
+        }
+    }
+    
     // MARK: - Performance Evaluation Functions
     
     /// Get performance level based on overall average and grading system

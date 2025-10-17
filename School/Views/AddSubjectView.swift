@@ -204,6 +204,7 @@ struct AddSubjectView: View {
                         saveSubject()
                     }
                     .fontWeight(.semibold)
+                    .buttonStyle(.borderedProminent)
                     .disabled(!isFormValid)
                 }
             }

@@ -235,6 +235,8 @@ struct QuickGradeValueSelectionView: View {
                     Button("Speichern") {
                         saveGrade()
                     }
+                    .accentColor(Color(hex: subject.colorHex))
+                    .buttonStyle(.borderedProminent)
                     .disabled(selectedGradeValue == nil)
                 }
             }

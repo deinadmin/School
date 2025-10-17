@@ -53,6 +53,7 @@ struct AddGradeTypeView: View {
                         saveGradeType()
                     }
                     .fontWeight(.semibold)
+                    .buttonStyle(.borderedProminent)
                     .disabled(!isValidInput)
                 }
             }

@@ -161,15 +161,7 @@ struct CardBasedSchoolPicker: View {
                 ))
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.regularMaterial)
-                .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color(.systemGray5), lineWidth: 1)
-        )
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20))
         .alert("Bewertungssystem ändern?", isPresented: $showingGradingSystemAlert) {
             Button("Konvertieren", role: .none) {
                 if let newSystem = pendingGradingSystem {

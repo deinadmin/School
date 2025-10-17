@@ -668,6 +668,7 @@ struct FixWeightsView: View {
                     Button("Speichern") {
                         saveWeights()
                     }
+                    .buttonStyle(.borderedProminent)
                     .disabled(totalWeight != 100)
                 }
             }
@@ -938,6 +939,7 @@ struct SetFinalGradeView: View {
                     Button("Speichern") {
                         saveFinalGrade()
                     }
+                    .buttonStyle(.borderedProminent)
                     .disabled(selectedGradeValue == nil)
                 }
             }
@@ -1020,7 +1022,7 @@ struct SetFinalGradeView: View {
                     ForEach(gradeRows, id: \.0) { row in
                         HStack(spacing: 12) {
                             ForEach(row.1, id: \.value) { gradeItem in
-                                gradeButton(for: gradeItem, rowColor: row.2)
+                                gradeButton(for: gradeItem)
                             }
                             
                             // Debug: Add empty space for rows with fewer items
@@ -1055,13 +1057,13 @@ struct SetFinalGradeView: View {
         }
     }
     
-    // Debug: Get grade rows based on the school year's grading system
-    private var gradeRows: [(Int, [(value: Double, display: String)], Color)] {
-        return GradingSystemHelpers.getGradeRows(for: schoolYear.gradingSystem)
+    // Debug: Get grade rows based on the school year's grading system (only full grades for traditional system)
+    private var gradeRows: [(Int, [(value: Double, display: String, color: Color)])] {
+        return GradingSystemHelpers.getFullGradeRowsForFinalGrade(for: schoolYear.gradingSystem)
     }
     
     // Debug: Individual grade button with animations (same as used in AddGradeView)
-    private func gradeButton(for gradeItem: (value: Double, display: String), rowColor: Color) -> some View {
+    private func gradeButton(for gradeItem: (value: Double, display: String, color: Color)) -> some View {
         Button(action: {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
                 selectedGradeValue = gradeItem.value
@@ -1070,26 +1072,26 @@ struct SetFinalGradeView: View {
             Text(gradeItem.display)
                 .font(.title3)
                 .fontWeight(.semibold)
-                .foregroundColor(selectedGradeValue == gradeItem.value ? .white : rowColor)
+                .foregroundColor(selectedGradeValue == gradeItem.value ? .white : gradeItem.color)
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
                 .background(
                     Group {
                         if selectedGradeValue == gradeItem.value {
-                            rowColor
+                            gradeItem.color
                         } else {
-                            rowColor.opacity(0.12)
+                            gradeItem.color.opacity(0.12)
                         }
                     }
                 )
                 .cornerRadius(12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(rowColor.opacity(selectedGradeValue == gradeItem.value ? 0 : 0.3), lineWidth: 1)
+                        .stroke(gradeItem.color.opacity(selectedGradeValue == gradeItem.value ? 0 : 0.3), lineWidth: 1)
                 )
                 .scaleEffect(selectedGradeValue == gradeItem.value ? 1.05 : 1.0)
                 .shadow(
-                    color: selectedGradeValue == gradeItem.value ? rowColor.opacity(0.3) : .clear,
+                    color: selectedGradeValue == gradeItem.value ? gradeItem.color.opacity(0.3) : .clear,
                     radius: selectedGradeValue == gradeItem.value ? 8 : 0,
                     x: 0, y: 4
                 )

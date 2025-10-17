@@ -192,10 +192,8 @@ struct ContentView: View {
                                     Spacer()
                             }
                             .padding()
-                            .background(Color.accentColor)
-                            .cornerRadius(16)
+                            .glassEffect(.regular.tint(.accentColor.opacity(0.9)), in: RoundedRectangle(cornerRadius: 16))
                         })
-                        .buttonStyle(.scalable)
 
                         if !sortedSubjects.isEmpty {
                             Button(action: {
@@ -212,10 +210,8 @@ struct ContentView: View {
                                     Spacer()
                                 }
                                 .padding()
-                                .background(Color.accentColor)
-                                .cornerRadius(16)
+                                .glassEffect(.regular.tint(.accentColor.opacity(0.9)), in: RoundedRectangle(cornerRadius: 16))
                             })
-                            .buttonStyle(.scalable)
                         }
                     }
                 }
