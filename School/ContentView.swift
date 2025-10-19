@@ -12,11 +12,14 @@ import WidgetKit
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass // Debug: Detect iPad vs iPhone
     @State private var selectedSchoolYear: SchoolYear = SchoolYear.current
     @State private var selectedSemester: Semester = Semester.first
     @State private var showingAddSubject = false
     @State private var showingQuickGradeAdd = false
     @State private var showingSettings = false // Debug: State for settings sheet
+    @State private var selectedSubject: Subject? = nil // Debug: For iPad sidebar selection
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all // Debug: Control sidebar visibility on iPad
     // Debug: App Storage for settings that affect main view
     @AppStorage("showMotivationalCharacter") private var showMotivationalCharacter = false
     @AppStorage("roundPointAverages") private var roundPointAverages = true
@@ -74,6 +77,369 @@ struct ContentView: View {
     }
     
     var body: some View {
+        // Debug: Use iPad layout for regular horizontal size class, iPhone layout otherwise
+        if horizontalSizeClass == .regular {
+            iPadLayout
+        } else {
+            iPhoneLayout
+        }
+    }
+    
+    // MARK: - iPad Layout
+    
+    /// iPad-optimized layout with sidebar for subjects
+    /// Debug: Uses NavigationSplitView for better iPad experience
+    private var iPadLayout: some View {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            // Sidebar content
+            iPadSidebar
+        } detail: {
+            // Detail view
+            iPadDetailView
+        }
+        .navigationSplitViewStyle(.balanced)
+        .sheet(isPresented: $showingAddSubject) {
+            AddSubjectView()
+        }
+        .sheet(isPresented: $showingQuickGradeAdd) {
+            QuickGradeAddView(
+                selectedSchoolYear: selectedSchoolYear,
+                selectedSemester: selectedSemester
+            )
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView(onImportComplete: self.refreshCurrentSelection)
+        }
+        .onAppear {
+            loadSelectedPeriod()
+        }
+        // Debug: Handle deep linking to open the quick add view
+        .onOpenURL { url in
+            handleDeepLink(url)
+        }
+        .onChange(of: selectedSchoolYear) { _, newValue in
+            saveSelectedSchoolYear(newValue)
+            updateWidget()
+        }
+        .onChange(of: selectedSemester) { _, newValue in
+            saveSelectedSemester(newValue)
+            updateWidget()
+        }
+        .onAppear {
+            updateWidget()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            updateWidget()
+        }
+        .onChange(of: roundPointAverages) { _, _ in
+            updateWidget()
+        }
+    }
+    
+    /// iPad sidebar with subject list and controls
+    /// Debug: Contains statistics, picker, and subject list with floating settings button
+    private var iPadSidebar: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Debug: Quick grade add button at the top (only when subjects exist)
+                if !sortedSubjects.isEmpty {
+                    Button(action: {
+                        showingQuickGradeAdd = true
+                    }) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                            Text("Note hinzufügen")
+                                .font(.body)
+                                .fontWeight(.semibold)
+                            Spacer()
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .glassEffect(.regular.tint(.accentColor.opacity(0.9)), in: RoundedRectangle(cornerRadius: 14))
+                    }
+                    .buttonStyle(.plain)
+                }
+                
+                // Debug: Statistics card (Gesamtschnitt)
+                if !sortedSubjects.isEmpty {
+                    StatisticsCardView(
+                        subjects: sortedSubjects,
+                        selectedSchoolYear: selectedSchoolYear,
+                        selectedSemester: selectedSemester
+                    )
+                }
+                
+                // Debug: School year picker beneath statistics
+                CardBasedSchoolPicker(selectedSchoolYear: $selectedSchoolYear, selectedSemester: $selectedSemester)
+                
+                // Debug: Subjects section header with add button
+                HStack(alignment: .center, spacing: 12) {
+                    Text("Fächer")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    // Debug: Add subject button as SF Symbol plus
+                    Button(action: {
+                        showingAddSubject = true
+                    }) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.accentColor)
+                            .symbolRenderingMode(.hierarchical)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 4)
+                
+                // Debug: Subjects list or empty state
+                if sortedSubjects.isEmpty {
+                    VStack(spacing: 20) {
+                        Image(systemName: "book.closed")
+                            .font(.system(size: 56))
+                            .foregroundColor(.secondary)
+                            .symbolRenderingMode(.hierarchical)
+                        
+                        VStack(spacing: 8) {
+                            Text("Keine Fächer")
+                                .font(.title3)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            
+                            Text("Tippe auf das + Symbol, um dein erstes Fach zu erstellen.")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
+                    .padding(.horizontal, 24)
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20))
+                } else {
+                    LazyVStack(spacing: 10) {
+                        ForEach(sortedSubjects, id: \.persistentModelID) { subject in
+                            iPadSidebarSubjectRow(subject: subject)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 80) // Debug: Extra padding for floating settings button
+        }
+        .navigationTitle("School")
+        .navigationBarTitleDisplayMode(.large)
+        .navigationSplitViewColumnWidth(min: 320, ideal: 400, max: 500)
+        .safeAreaInset(edge: .bottom) {
+            // Debug: Floating settings button at bottom
+            iPadSidebarFloatingSettings
+        }
+    }
+    
+    /// Floating settings button at bottom of sidebar
+    /// Debug: Uses native safe area inset with liquid glass tint
+    private var iPadSidebarFloatingSettings: some View {
+        Button(action: {
+            showingSettings = true
+        }) {
+            HStack(spacing: 12) {
+                Image(systemName: "gearshape.fill")
+                    .font(.title3)
+                    .foregroundColor(.white)
+                    .symbolRenderingMode(.hierarchical)
+                
+                Text("Einstellungen")
+                    .font(.body)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+        }
+        .glassEffect(.regular.tint(.accentColor.opacity(0.8)), in: RoundedRectangle(cornerRadius: 14))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
+    }
+    
+    /// iPad sidebar subject row (polished liquid glass design)
+    /// Debug: Clickable subject row with modern styling and selection state
+    private func iPadSidebarSubjectRow(subject: Subject) -> some View {
+        let isSelected = selectedSubject?.persistentModelID == subject.persistentModelID
+        let gradeCount = DataManager.getGrades(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext).count
+        let average = DataManager.calculateWeightedAverage(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+        
+        return Button(action: {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                selectedSubject = subject
+            }
+        }) {
+            HStack(spacing: 12) {
+                // Debug: Subject icon with color accent
+                Image(systemName: subject.icon)
+                    .foregroundColor(Color(hex: subject.colorHex))
+                    .font(.title3)
+                    .symbolRenderingMode(.hierarchical)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color(hex: subject.colorHex).opacity(0.15))
+                    )
+                
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(subject.name)
+                        .font(.body)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                    
+                    // Debug: Grade count with proper singular/plural
+                    Text(gradeCount == 1 ? "1 Note" : "\(gradeCount) Noten")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                // Debug: Average grade badge
+                if let avg = average {
+                    HStack(spacing: 4) {
+                        // Debug: Show star icon if final grade exists
+                        let hasFinalGrade = DataManager.hasFinalGrade(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+                        if hasFinalGrade {
+                            Image(systemName: "star.fill")
+                                .font(.caption2)
+                                .foregroundColor(GradingSystemHelpers.gradeColor(for: avg, system: selectedSchoolYear.gradingSystem))
+                        }
+                        
+                        Text(GradingSystemHelpers.gradeDisplayText(for: avg, system: selectedSchoolYear.gradingSystem))
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                    }
+                    .foregroundColor(GradingSystemHelpers.gradeColor(for: avg, system: selectedSchoolYear.gradingSystem))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(GradingSystemHelpers.gradeColor(for: avg, system: selectedSchoolYear.gradingSystem).opacity(0.15))
+                    )
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                Group {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.accentColor.opacity(0.12))
+                    } else {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(.secondarySystemGroupedBackground))
+                    }
+                }
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(
+                        isSelected ? Color.accentColor.opacity(0.5) : Color.clear,
+                        lineWidth: 2
+                    )
+            )
+            .shadow(
+                color: isSelected ? Color.accentColor.opacity(0.2) : Color.black.opacity(0.05),
+                radius: isSelected ? 8 : 4,
+                y: 2
+            )
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button(role: .destructive) {
+                DataManager.deleteSubject(subject, from: modelContext)
+                if selectedSubject?.persistentModelID == subject.persistentModelID {
+                    selectedSubject = nil
+                }
+            } label: {
+                Label("Fach löschen", systemImage: "trash")
+            }
+        }
+    }
+    
+    /// iPad detail view showing selected subject or placeholder
+    /// Debug: Main content area on iPad
+    private var iPadDetailView: some View {
+        Group {
+            if let subject = selectedSubject {
+                SubjectDetailView(
+                    subject: subject,
+                    selectedSchoolYear: selectedSchoolYear,
+                    selectedSemester: selectedSemester
+                )
+            } else {
+                iPadEmptyDetailView
+            }
+        }
+    }
+    
+    /// Placeholder view when no subject is selected on iPad
+    /// Debug: Welcome screen for iPad detail area
+    private var iPadEmptyDetailView: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "book.closed")
+                .font(.system(size: 80))
+                .foregroundColor(.secondary)
+            
+            VStack(spacing: 8) {
+                Text("Willkommen bei School")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                
+                Text(sortedSubjects.isEmpty ? 
+                     "Erstelle dein erstes Fach, um loszulegen." :
+                     "Wähle ein Fach aus der Seitenleiste.")
+                    .font(.title3)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            
+            if showMotivationalCharacter, let overallAvg = overallAverage {
+                VStack(spacing: 16) {
+                    Text(speechBubbleText)
+                        .font(.title2)
+                        .foregroundColor(.primary)
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color(.systemBackground))
+                                .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color(.systemGray5), lineWidth: 1)
+                        )
+                    
+                    Image("StudentCharacter")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 250)
+                }
+                .padding()
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemGroupedBackground))
+    }
+    
+    // MARK: - iPhone Layout
+    
+    /// Original iPhone layout (unchanged)
+    /// Debug: Preserves existing iPhone UI
+    private var iPhoneLayout: some View {
         NavigationStack {
             ZStack {
                 ScrollView {
@@ -247,28 +613,7 @@ struct ContentView: View {
             }
             // Debug: Handle deep linking to open the quick add view
             .onOpenURL { url in
-                print("Debug: .onOpenURL called with URL: \(url)")
-                if url.scheme == "schoolapp" && url.host == "quick-add" {
-                    print("Debug: URL matched. Current showingQuickGradeAdd: \(self.showingQuickGradeAdd). Attempting to set to true.")
-                    
-                    // Debug: To avoid state conflicts, dismiss any currently presented sheet first
-                    if showingAddSubject || showingSettings {
-                        print("Debug: Other sheet is showing. Dismissing it first.")
-                        showingAddSubject = false
-                        showingSettings = false
-                        
-                        // Debug: Give the dismissal animation a moment to complete
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            print("Debug: Dispatch.asyncAfter - Setting showingQuickGradeAdd to true.")
-                            showingQuickGradeAdd = true
-                        }
-                    } else {
-                        print("Debug: No other sheet showing. Setting showingQuickGradeAdd to true directly.")
-                        showingQuickGradeAdd = true
-                    }
-                } else {
-                    print("Debug: URL did not match expected scheme/host.")
-                }
+                handleDeepLink(url)
             }
             .onChange(of: selectedSchoolYear) { _, newValue in
                 saveSelectedSchoolYear(newValue)
@@ -292,6 +637,35 @@ struct ContentView: View {
                 // Debug: Update widget when rounding setting changes
                 updateWidget()
             }
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    /// Handle deep link URL for quick add and other actions
+    /// Debug: Centralized deep link handler used by both iPad and iPhone layouts
+    private func handleDeepLink(_ url: URL) {
+        print("Debug: .onOpenURL called with URL: \(url)")
+        if url.scheme == "schoolapp" && url.host == "quick-add" {
+            print("Debug: URL matched. Current showingQuickGradeAdd: \(self.showingQuickGradeAdd). Attempting to set to true.")
+            
+            // Debug: To avoid state conflicts, dismiss any currently presented sheet first
+            if showingAddSubject || showingSettings {
+                print("Debug: Other sheet is showing. Dismissing it first.")
+                showingAddSubject = false
+                showingSettings = false
+                
+                // Debug: Give the dismissal animation a moment to complete
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    print("Debug: Dispatch.asyncAfter - Setting showingQuickGradeAdd to true.")
+                    showingQuickGradeAdd = true
+                }
+            } else {
+                print("Debug: No other sheet showing. Setting showingQuickGradeAdd to true directly.")
+                showingQuickGradeAdd = true
+            }
+        } else {
+            print("Debug: URL did not match expected scheme/host.")
         }
     }
     

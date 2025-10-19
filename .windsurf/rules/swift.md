@@ -96,3 +96,10 @@ alwaysApply: true
 # 11. No Modules
 
 - Don’t create extra modules or packages. Keep all files in the same target and project.
+
+# 12. Latest Update
+
+- The latest iOS/iPadOS/macOS version is 26
+- Apple Unified the versions making them all the last two digits of the next year.
+- Apple introduced liquid glass, a brand new design language for all operating systems.
+- If you're unsure how to implement liquid glass, use the web tool to gather information
