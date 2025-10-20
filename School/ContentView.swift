@@ -20,9 +20,11 @@ struct ContentView: View {
     @State private var showingSettings = false // Debug: State for settings sheet
     @State private var selectedSubject: Subject? = nil // Debug: For iPad sidebar selection
     @State private var columnVisibility: NavigationSplitViewVisibility = .all // Debug: Control sidebar visibility on iPad
+    @State private var isGridView = false // Debug: State for animated view toggle (list/grid) for subjects (iPhone only)
     // Debug: App Storage for settings that affect main view
     @AppStorage("showMotivationalCharacter") private var showMotivationalCharacter = false
     @AppStorage("roundPointAverages") private var roundPointAverages = true
+    @AppStorage("storedIsGridView") private var storedIsGridView = false // Debug: Persist view preference to UserDefaults
     // Debug: Query all subjects (subjects are independent of school year/semester)
     @Query(sort: \Subject.name) private var allSubjects: [Subject]
     
@@ -454,6 +456,56 @@ struct ContentView: View {
                             )
                         }
                         
+                        // Debug: Fächer section header with view toggle (only shown when subjects exist)
+                        if !sortedSubjects.isEmpty {
+                            HStack(alignment: .center, spacing: 12) {
+                                Text("Fächer")
+                                    .font(.headline)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.primary)
+                                
+                                Spacer()
+                                
+                                // Debug: View mode toggle buttons
+                                HStack(spacing: 8) {
+                                    Button(action: {
+                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                                            isGridView = false
+                                            storedIsGridView = false // Debug: Save to UserDefaults
+                                        }
+                                    }) {
+                                        Image(systemName: "list.bullet")
+                                            .font(.body)
+                                            .foregroundColor(isGridView ? .secondary : .accentColor)
+                                            .frame(width: 32, height: 32)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .fill(isGridView ? Color(.systemGray6) : Color.accentColor.opacity(0.15))
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                    
+                                    Button(action: {
+                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                                            isGridView = true
+                                            storedIsGridView = true // Debug: Save to UserDefaults
+                                        }
+                                    }) {
+                                        Image(systemName: "square.grid.2x2")
+                                            .font(.body)
+                                            .foregroundColor(isGridView ? .accentColor : .secondary)
+                                            .frame(width: 32, height: 32)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .fill(isGridView ? Color.accentColor.opacity(0.15) : Color(.systemGray6))
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 4)
+                        }
+                        
                         // Debug: Subjects list moved out of header section
                         if sortedSubjects.isEmpty {
                             VStack(spacing: 16) {
@@ -486,21 +538,38 @@ struct ContentView: View {
                                     .stroke(Color(.systemGray5), lineWidth: 1)
                             )
                         } else {
-                            LazyVStack(spacing: 12) {
-                                ForEach(sortedSubjects, id: \.persistentModelID) { subject in
-                                    NavigationLink(destination: SubjectDetailView(
-                                        subject: subject,
-                                        selectedSchoolYear: selectedSchoolYear,
-                                        selectedSemester: selectedSemester
-                                    )) {
-                                        SubjectRowView(
+                            // Debug: Conditionally show grid or list view with smooth morphing animation
+                            if isGridView {
+                                SubjectGridView(
+                                    subjects: sortedSubjects,
+                                    selectedSchoolYear: selectedSchoolYear,
+                                    selectedSemester: selectedSemester
+                                )
+                                .transition(.asymmetric(
+                                    insertion: .scale(scale: 0.95).combined(with: .opacity),
+                                    removal: .scale(scale: 0.95).combined(with: .opacity)
+                                ))
+                            } else {
+                                LazyVStack(spacing: 12) {
+                                    ForEach(sortedSubjects, id: \.persistentModelID) { subject in
+                                        NavigationLink(destination: SubjectDetailView(
                                             subject: subject,
                                             selectedSchoolYear: selectedSchoolYear,
                                             selectedSemester: selectedSemester
-                                        )
+                                        )) {
+                                            SubjectRowView(
+                                                subject: subject,
+                                                selectedSchoolYear: selectedSchoolYear,
+                                                selectedSemester: selectedSemester
+                                            )
+                                        }
+                                        .buttonStyle(.plain) // Debug: Remove default button styling for custom appearance
                                     }
-                                    .buttonStyle(.plain) // Debug: Remove default button styling for custom appearance
                                 }
+                                .transition(.asymmetric(
+                                    insertion: .scale(scale: 0.95).combined(with: .opacity),
+                                    removal: .scale(scale: 0.95).combined(with: .opacity)
+                                ))
                             }
                         }
                         if showMotivationalCharacter {
@@ -615,6 +684,8 @@ struct ContentView: View {
             }
             .onAppear {
                 loadSelectedPeriod()
+                // Debug: Restore grid view preference from UserDefaults
+                isGridView = storedIsGridView
             }
             // Debug: Handle deep linking to open the quick add view
             .onOpenURL { url in
@@ -988,6 +1059,134 @@ struct SubjectRowView: View {
             Text("Das Fach \"\(subject.name)\" und alle zugehörigen Noten werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.")
         }
         .id(roundPointAverages) // Debug: Force UI update when rounding setting changes
+    }
+}
+
+// Debug: Grid view for subjects with minimal information
+struct SubjectGridView: View {
+    let subjects: [Subject]
+    let selectedSchoolYear: SchoolYear
+    let selectedSemester: Semester
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    // Debug: App Storage for rounding setting to trigger UI updates
+    @AppStorage("roundPointAverages") private var roundPointAverages = true
+    
+    // Debug: Dynamically calculate columns based on screen size
+    private var columns: [GridItem] {
+        // Debug: Always use 2 columns on iPhone for optimal readability
+        return Array(repeating: GridItem(.flexible(), spacing: 12), count: 2)
+    }
+    
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 12) {
+            ForEach(subjects, id: \.persistentModelID) { subject in
+                NavigationLink(destination: SubjectDetailView(
+                    subject: subject,
+                    selectedSchoolYear: selectedSchoolYear,
+                    selectedSemester: selectedSemester
+                )) {
+                    SubjectGridItemView(
+                        subject: subject,
+                        selectedSchoolYear: selectedSchoolYear,
+                        selectedSemester: selectedSemester
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .id(roundPointAverages) // Debug: Force UI update when rounding setting changes
+    }
+}
+
+// Debug: Individual grid item for a subject
+struct SubjectGridItemView: View {
+    let subject: Subject
+    let selectedSchoolYear: SchoolYear
+    let selectedSemester: Semester
+    @Environment(\.modelContext) private var modelContext
+    @State private var showingDeleteAlert = false
+    
+    // Debug: Get grades for this subject in the selected period
+    private var gradesForSelectedPeriod: [Grade] {
+        DataManager.getGrades(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+    }
+    
+    // Debug: Calculate average for selected period
+    private var averageGrade: Double? {
+        DataManager.calculateWeightedAverage(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+    }
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            // Debug: Icon at the top
+            Image(systemName: subject.icon)
+                .foregroundColor(Color(hex: subject.colorHex))
+                .font(.system(size: 36))
+                .symbolRenderingMode(.hierarchical)
+                .frame(width: 60, height: 60)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(hex: subject.colorHex).opacity(0.15))
+                )
+            
+            // Debug: Subject name
+            Text(subject.name)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(.primary)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            
+            // Debug: Grade and count in minimal format
+            VStack(spacing: 4) {
+                // Debug: Show average grade with color
+                if let average = averageGrade {
+                    Text(GradingSystemHelpers.gradeDisplayText(for: average, system: selectedSchoolYear.gradingSystem))
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(GradingSystemHelpers.gradeColor(for: average, system: selectedSchoolYear.gradingSystem))
+                } else {
+                    Text("-")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(.secondary)
+                }
+                
+                // Debug: Grade count in secondary color
+                Text("\(gradesForSelectedPeriod.count) \(gradesForSelectedPeriod.count == 1 ? "Note" : "Noten")")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .padding(.horizontal, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.systemBackground))
+                .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(.systemGray5), lineWidth: 1)
+        )
+        .contextMenu {
+            Button(role: .destructive) {
+                showingDeleteAlert = true
+            } label: {
+                Label("Fach löschen", systemImage: "trash")
+            }
+        }
+        .alert("Fach löschen?", isPresented: $showingDeleteAlert) {
+            Button("Löschen", role: .destructive) {
+                DataManager.deleteSubject(subject, from: modelContext)
+            }
+            Button("Abbrechen", role: .cancel) { }
+        } message: {
+            Text("Das Fach \"\(subject.name)\" und alle zugehörigen Noten werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.")
+        }
     }
 }
 
