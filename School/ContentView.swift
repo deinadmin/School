@@ -158,6 +158,7 @@ struct ContentView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
                         .glassEffect(.regular.tint(.accentColor.opacity(0.9)), in: RoundedRectangle(cornerRadius: 14))
+                        .contentShape(RoundedRectangle(cornerRadius: 14))
                     }
                     .buttonStyle(.plain)
                 }
