@@ -24,7 +24,7 @@ struct CardBasedSchoolPicker: View {
                 HStack(spacing: 16) {
                     // Icon
                     ZStack {
-                        RoundedRectangle(cornerRadius: 8)
+                        Circle()
                             .fill(LinearGradient(
                                 colors: [Color.accentColor.opacity(0.2), Color.accentColor.opacity(0.2)],
                                 startPoint: .topLeading,
@@ -58,7 +58,6 @@ struct CardBasedSchoolPicker: View {
                 .frame(maxWidth: .infinity, alignment: .leading) // Debug: Make entire card area tappable
                 .contentShape(Rectangle()) // Debug: Ensure entire button area is tappable
             }
-            .buttonStyle(PlainButtonStyle())
             
             // Expanded View
             if isExpanded {
@@ -159,9 +158,10 @@ struct CardBasedSchoolPicker: View {
                     insertion: .move(edge: .bottom).combined(with: .opacity),
                     removal: .move(edge: .bottom).combined(with: .opacity)
                 ))
+                .contentShape(Rectangle())
             }
         }
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20))
+        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 35))
         .alert("Bewertungssystem ändern?", isPresented: $showingGradingSystemAlert) {
             Button("Konvertieren", role: .none) {
                 if let newSystem = pendingGradingSystem {
@@ -288,7 +288,7 @@ struct GradingSystemCard: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 20)
                     .fill(isSelected ?
                         LinearGradient(
                             colors: [Color.blue, Color.blue.opacity(0.8)],
@@ -304,7 +304,7 @@ struct GradingSystemCard: View {
                     .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 20)
                     .stroke(Color(.systemGray5), lineWidth: 1)
             )
         }
@@ -331,7 +331,7 @@ struct SemesterCard: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 20)
                     .fill(isSelected ?
                         LinearGradient(
                             colors: [Color.blue, Color.blue.opacity(0.8)],
@@ -347,7 +347,7 @@ struct SemesterCard: View {
                     .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 20)
                     .stroke(Color(.systemGray5), lineWidth: 1)
             )
         }

@@ -401,10 +401,10 @@ struct ContentView: View {
                 
                 Text(sortedSubjects.isEmpty ? 
                      "Erstelle dein erstes Fach, um loszulegen." :
-                     "Wähle ein Fach aus der Seitenleiste.")
-                    .font(.title3)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
+                        "Wähle ein Fach aus der Seitenleiste.")
+                .font(.title3)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
             }
             
             if showMotivationalCharacter, let overallAvg = overallAverage {
@@ -525,7 +525,7 @@ struct ContentView: View {
                                     
                                     Spacer()
                                 }
-
+                                
                                 Image("StudentCharacter")
                                     .resizable()
                                     .scaledToFit()
@@ -536,53 +536,57 @@ struct ContentView: View {
                         }
                     }
                     .padding(.horizontal)
-                    .padding(.bottom, 145)
+                    .padding(.bottom, 160)
                 }
                 
                 VStack(alignment: .leading) {
                     Spacer()
-                    
+                    GlassEffectContainer {
                     CardBasedSchoolPicker(selectedSchoolYear: $selectedSchoolYear, selectedSemester: $selectedSemester)
-                    HStack {
-                        Button(action: {
-                            showingAddSubject = true
-                        }, label: {
-                            HStack {
-                                Spacer()
-                                Image(systemName: "plus")
-                                    .foregroundColor(.white)
-                                    .bold()
-                                Text("Fach")
-                                    .foregroundColor(.white)
-                                    .bold()
-                                    Spacer()
-                            }
-                            .padding()
-                            .glassEffect(.regular.tint(.accentColor.opacity(0.9)), in: RoundedRectangle(cornerRadius: 16))
-                        })
-
-                        if !sortedSubjects.isEmpty {
+                    
+                        HStack {
                             Button(action: {
-                                showingQuickGradeAdd = true
+                                showingAddSubject = true
                             }, label: {
                                 HStack {
                                     Spacer()
                                     Image(systemName: "plus")
                                         .foregroundColor(.white)
                                         .bold()
-                                    Text("Note")
+                                    Text("Fach")
                                         .foregroundColor(.white)
                                         .bold()
                                     Spacer()
                                 }
                                 .padding()
-                                .glassEffect(.regular.tint(.accentColor.opacity(0.9)), in: RoundedRectangle(cornerRadius: 16))
+                                //.glassEffect(.regular.tint(.accentColor.opacity(0.9)), in: RoundedRectangle(cornerRadius: 16))
                             })
+                            .buttonStyle(.glassProminent)
+                            
+                            if !sortedSubjects.isEmpty {
+                                Button(action: {
+                                    showingQuickGradeAdd = true
+                                }, label: {
+                                    HStack {
+                                        Spacer()
+                                        Image(systemName: "plus")
+                                            .foregroundColor(.white)
+                                            .bold()
+                                        Text("Note")
+                                            .foregroundColor(.white)
+                                            .bold()
+                                        Spacer()
+                                    }
+                                    .padding()
+                                    //.glassEffect(.regular.tint(.accentColor.opacity(0.9)), in: RoundedRectangle(cornerRadius: 16))
+                                })
+                                .buttonStyle(.glassProminent)
+                            }
                         }
                     }
                 }
                 .padding(.horizontal)
-
+                
             }
             .navigationTitle("School")
             .toolbar {
@@ -772,170 +776,102 @@ struct StatisticsCardView: View {
         return (average, allGrades.count, subjectsWithGrades)
     }
     
-    // Debug: Performance level for visual indicators
-    private var performanceLevel: PerformanceLevel {
-        guard let average = overallStatistics.average else { return .none }
-        return GradingSystemHelpers.getPerformanceLevel(for: average, system: selectedSchoolYear.gradingSystem)
-    }
-    
     var body: some View {
-        VStack(spacing: 16) {
-            // Debug: Header with period info and performance indicator
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Gesamtschnitt")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
+        HStack(spacing: 16) {
+            // Left side - Main average (matching widget design)
+            VStack(alignment: .leading, spacing: 8) {
+                // Header (matching widget)
+                HStack {
+                    Image(systemName: "chart.bar.fill")
+                        .font(.title3)
+                        .foregroundColor(.white)
                     
-                    Text("\(selectedSchoolYear.displayName) • \(selectedSemester.displayName)")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                // Debug: Performance badge
-                performanceBadge
-            }
-            
-            // Debug: Main statistics row with prominent average display
-            HStack(alignment: .center, spacing: 20) {
-                // Debug: Large average display with circular background
-                VStack(spacing: 4) {
-                    if let average = overallStatistics.average {
-                        Text(GradingSystemHelpers.gradeDisplayText(for: average, system: selectedSchoolYear.gradingSystem))
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Schnitt")
+                            .font(.headline)
+                            .fontWeight(.bold)
                             .foregroundColor(.white)
-                    } else {
-                        Image(systemName: "questionmark")
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
+                        
+                        Text(selectedSchoolYear.displayName)
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.8))
                     }
-
                 }
-                .frame(width: 80, height: 80)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(
-                            LinearGradient(
-                                colors: gradientColors,
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                )
-
-
-                VStack(alignment: .leading) {
-                    Text("\(overallStatistics.subjectsWithGrades) \(overallStatistics.subjectsWithGrades == 1 ? "Fach" : "Fächer") mit Noten")
-                        .font(.title2)
-                        .foregroundColor(.secondary)
-                        .bold()
-
-                    Text("\(overallStatistics.totalGrades) \(overallStatistics.totalGrades == 1 ? "Note" : "Noten")")
-                        .font(.title2)
-                        .foregroundColor(.secondary)
-                        .bold()
-                }
-
+                
                 Spacer()
                 
+                // Main average display (matching widget)
+                if let average = overallStatistics.average {
+                    HStack(alignment: .bottom, spacing: 4) {
+                        Text("⌀")
+                            .font(.system(size: 60))
+                            .bold()
+                            .foregroundColor(.white.opacity(0.8))
+                        
+                        Text(GradingSystemHelpers.gradeDisplayText(for: average, system: selectedSchoolYear.gradingSystem))
+                            .font(.system(size: 60))
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                            .minimumScaleFactor(0.7)
+                            .lineLimit(1)
+                    }
+                } else {
+                    Text("Keine Noten")
+                        .font(.title2)
+                        .foregroundColor(.white.opacity(0.8))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            
+            // Right side - Statistics (matching widget)
+            VStack(alignment: .trailing, spacing: 12) {
+                // Semester indicator (matching widget)
+                Text(selectedSemester.displayName)
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.white.opacity(0.2))
+                    .cornerRadius(8)
+                    .foregroundColor(.white)
                 
+                Spacer()
+                
+                // Statistics (matching widget)
+                VStack(alignment: .trailing, spacing: 4) {
+                    if overallStatistics.subjectsWithGrades > 0 {
+                        Text("\(overallStatistics.subjectsWithGrades) \(overallStatistics.subjectsWithGrades == 1 ? "Fach" : "Fächer")")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.9))
+                    }
+                    
+                    if overallStatistics.totalGrades > 0 {
+                        Text("\(overallStatistics.totalGrades) \(overallStatistics.totalGrades == 1 ? "Note" : "Noten")")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.9))
+                    }
+                    
+                    Text(selectedSchoolYear.gradingSystem.displayName)
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.7))
+                }
             }
         }
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 20)
                 .fill(
-                    Color(.systemBackground)
-                )
-                .shadow(color: Color.black.opacity(0.12), radius: 16, y: 6)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(
                     LinearGradient(
                         colors: gradientColors,
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1.5
+                    )
                 )
+                .shadow(color: Color.black.opacity(0.15), radius: 16, y: 6)
         )
         .id(roundPointAverages) // Debug: Force UI update when rounding setting changes
     }
     
-    // Debug: Performance badge showing current level with consistent color
-    private var performanceBadge: some View {
-        HStack(spacing: 6) {
-            Image(systemName: performanceLevel.icon)
-                .font(.caption)
-                .foregroundColor(badgeColor)
-            
-            Text(performanceLevel.title)
-                .font(.caption2)
-                .fontWeight(.medium)
-                .foregroundColor(badgeColor)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .background(
-            Capsule()
-                .fill(badgeColor.opacity(0.15))
-        )
-        .overlay(
-            Capsule()
-                .stroke(badgeColor.opacity(0.3), lineWidth: 1)
-        )
-    }
-    
-    // Debug: Badge color that matches grade color
-    private var badgeColor: Color {
-        if let average = overallStatistics.average {
-            return GradingSystemHelpers.gradeColor(for: average, system: selectedSchoolYear.gradingSystem)
-        } else {
-            return .gray
-        }
-    }
-    
-    // Debug: Individual statistic row component
-    private func statisticRow(icon: String, title: String, value: String, subtitle: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
-                .foregroundColor(iconColor)
-                .frame(width: 20)
-            
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(value)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                    
-                    Text(title)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-        }
-    }
-    
-    // Debug: Icon color that matches grade color
-    private var iconColor: Color {
-        if let average = overallStatistics.average {
-            return GradingSystemHelpers.gradeColor(for: average, system: selectedSchoolYear.gradingSystem)
-        } else {
-            return .gray
-        }
-    }
-    
-    // Debug: Dynamic gradient colors based on performance
+    // Debug: Dynamic gradient colors based on performance (matching widget design)
     private var gradientColors: [Color] {
         if let average = overallStatistics.average {
             let gradeColor = GradingSystemHelpers.gradeColor(for: average, system: selectedSchoolYear.gradingSystem)
@@ -1117,8 +1053,8 @@ struct SettingsView: View {
                 }
             }
             .shareSheet(isPresented: $showingExportSheet, 
-                       items: exportFileURL != nil ? [exportFileURL!] : [],
-                       onDismiss: {
+                        items: exportFileURL != nil ? [exportFileURL!] : [],
+                        onDismiss: {
                 if let url = exportFileURL {
                     cleanupTemporaryFile(url)
                 }
@@ -1666,7 +1602,7 @@ struct SettingsView: View {
                 
                 DispatchQueue.main.async {
                     // Debug: Restore original grading systems from backup to UserDefaults
-                                            self.setGradingSystemsInSwiftData(importData.schoolYearGradingSystems)
+                    self.setGradingSystemsInSwiftData(importData.schoolYearGradingSystems)
                     
                     self.isImporting = false
                     print("Debug: Data imported successfully, original grading systems restored")
@@ -1817,7 +1753,7 @@ class DataExporter {
         
         // Debug: Export grading systems for all relevant school years
         var schoolYearGradingSystems: [String: String] = [:]
-
+        
         // 1. Export systems for all years with an explicit setting, covering configured-but-empty years.
         let allYearsToCheck = SchoolYear.allAvailableYears(from: context)
         for schoolYear in allYearsToCheck {
@@ -1826,7 +1762,7 @@ class DataExporter {
                 schoolYearGradingSystems[String(schoolYear.startYear)] = gradingSystem.rawValue
             }
         }
-
+        
         // 2. Safety net: Ensure any year with grades is included, even if outside the 'allAvailableYears' range.
         for subject in subjects {
             for grade in subject.grades ?? [] {

@@ -51,6 +51,7 @@ struct CloudKitSyncView: View {
         }
         .sheet(isPresented: $showingDetailedStatus) {
             detailedStatusView
+                .presentationDetents([.medium])
         }
         .sheet(isPresented: $showingTroubleshootingGuide) {
             troubleshootingGuideView
@@ -281,34 +282,69 @@ struct CloudKitSyncView: View {
     
     private var detailedStatusView: some View {
         NavigationView {
-            VStack(alignment: .leading, spacing: 20) {
-                // Status Cards
-                VStack(spacing: 12) {
-                    detailCard(
-                        title: "CloudKit Status",
-                        value: syncManager.syncStatusDescription,
-                        icon: syncManager.syncStatus.icon,
-                        color: syncManager.syncStatus.color
-                    )
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Debug: Sync Status Section
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Synchronisationsstatus")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .padding(.horizontal)
+                        
+                        VStack(spacing: 12) {
+                            detailCard(
+                                title: "CloudKit Status",
+                                value: syncManager.syncStatusDescription,
+                                icon: syncManager.syncStatus.icon,
+                                color: syncManager.syncStatus.color
+                            )
+                            
+                            detailCard(
+                                title: "iCloud Account",
+                                value: syncManager.accountStatusDescription,
+                                icon: syncManager.isCloudKitAvailable ? "checkmark.circle.fill" : "xmark.circle.fill",
+                                color: syncManager.isCloudKitAvailable ? .green : .red
+                            )
+                            
+                            detailCard(
+                                title: "Letzte Synchronisation",
+                                value: syncManager.lastSyncDescription,
+                                icon: "clock.arrow.circlepath",
+                                color: .blue
+                            )
+                        }
+                    }
                     
-                    detailCard(
-                        title: "iCloud Account",
-                        value: syncManager.accountStatusDescription,
-                        icon: syncManager.isCloudKitAvailable ? "checkmark.circle.fill" : "xmark.circle.fill",
-                        color: syncManager.isCloudKitAvailable ? .green : .red
-                    )
+                    // Debug: Device & Infrastructure Section
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Gerät")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .padding(.horizontal)
+                        
+                        VStack(spacing: 12) {
+                            detailCard(
+                                title: "Aktuelles Gerät",
+                                value: syncManager.currentDeviceName,
+                                icon: UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone",
+                                color: .purple
+                            )
+                            
+                            if let zoneInfo = syncManager.recordZoneInfo {
+                                detailCard(
+                                    title: "CloudKit Zonen",
+                                    value: zoneInfo,
+                                    icon: "cloud.fill",
+                                    color: .cyan
+                                )
+                            }
+                        }
+                    }
                     
-                    detailCard(
-                        title: "Letzte Synchronisation",
-                        value: syncManager.lastSyncDescription,
-                        icon: "clock.arrow.circlepath",
-                        color: .blue
-                    )
-                }
                 
-                Spacer()
+                }
+                .padding()
             }
-            .padding()
             .navigationTitle("Sync-Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

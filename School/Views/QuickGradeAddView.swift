@@ -241,23 +241,6 @@ struct QuickGradeValueSelectionView: View {
                 }
             }
 
-            if selectedGradeValue != nil {
-                Button(action: saveGrade) {
-                    HStack {
-                        Spacer()
-                        Text("Note speichern")
-                            .foregroundColor(.white)
-                            .fontWeight(.semibold)
-                        Spacer()
-                    }
-                    .padding()
-                    .background(Color(hex: subject.colorHex))
-                    .cornerRadius(16)
-                }
-                .buttonStyle(.scalable)
-                .padding(.top, 8)
-                .padding(.bottom)
-            }
         }
     }
     

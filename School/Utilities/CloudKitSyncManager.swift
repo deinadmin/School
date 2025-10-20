@@ -36,6 +36,12 @@ class CloudKitSyncManager {
     /// Whether iCloud is available and properly configured
     var isCloudKitAvailable: Bool = false
     
+    /// Current device name
+    var currentDeviceName: String = UIDevice.current.name
+    
+    /// CloudKit zone information
+    var recordZoneInfo: String?
+    
     // MARK: - Private Properties
     
     private let container: CKContainer
@@ -53,8 +59,12 @@ class CloudKitSyncManager {
         self.container = CKContainer.default()
         self.database = container.privateCloudDatabase
         
+        // Debug: Load persisted last sync date immediately
+        self.lastSyncDate = UserDefaults.standard.object(forKey: "lastCloudKitSyncDate") as? Date
+        
         setupCloudKitMonitoring()
         checkCloudKitAvailability()
+        fetchCloudKitZoneInfo()
     }
     
     // MARK: - CloudKit Availability
@@ -95,11 +105,27 @@ class CloudKitSyncManager {
             }
             .store(in: &cancellables)
         
+        // Debug: Monitor for NSPersistentCloudKitContainer remote change notifications
+        // This detects actual SwiftData sync events happening in the background
+        NotificationCenter.default.publisher(for: NSNotification.Name("NSPersistentStoreRemoteChange"))
+            .sink { [weak self] notification in
+                print("Debug: SwiftData remote change detected - sync occurred")
+                self?.handleRemoteChange(notification)
+            }
+            .store(in: &cancellables)
+        
+        // Debug: Monitor for persistent store coordinator events
+        NotificationCenter.default.publisher(for: NSNotification.Name.NSManagedObjectContextDidSave)
+            .sink { [weak self] _ in
+                // Debug: Data was saved, likely synced to CloudKit
+                self?.updateSyncTimestamp()
+            }
+            .store(in: &cancellables)
+        
         // Debug: Update last sync date when app becomes active
         NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
             .sink { [weak self] _ in
                 self?.checkCloudKitAvailability()
-                self?.updateLastSyncDate()
             }
             .store(in: &cancellables)
     }
@@ -158,16 +184,55 @@ class CloudKitSyncManager {
     
     // MARK: - Sync Date Management
     
-    /// Update last sync date from UserDefaults
-    /// Debug: Loads persisted sync date
-    private func updateLastSyncDate() {
-        lastSyncDate = UserDefaults.standard.object(forKey: "lastCloudKitSyncDate") as? Date
+    /// Handle remote change notification from SwiftData
+    /// Debug: Called when SwiftData detects a sync event
+    private func handleRemoteChange(_ notification: Notification) {
+        DispatchQueue.main.async {
+            self.lastSyncDate = Date()
+            self.saveLastSyncDate()
+            self.syncStatus = .synced
+            print("Debug: Updated last sync date from remote change: \(self.lastSyncDate!)")
+        }
+    }
+    
+    /// Update sync timestamp after data changes
+    /// Debug: Updates last sync date when local changes are saved
+    private func updateSyncTimestamp() {
+        // Debug: Only update if CloudKit is available and we're not already syncing
+        guard isCloudKitAvailable, !isSyncing else { return }
+        
+        DispatchQueue.main.async {
+            self.lastSyncDate = Date()
+            self.saveLastSyncDate()
+            print("Debug: Updated sync timestamp after data save")
+        }
     }
     
     /// Save last sync date to UserDefaults
     /// Debug: Persists sync date across app launches
     private func saveLastSyncDate() {
         UserDefaults.standard.set(lastSyncDate, forKey: "lastCloudKitSyncDate")
+    }
+    
+    /// Fetch CloudKit zone information
+    /// Debug: Gets metadata about CloudKit zones for display
+    private func fetchCloudKitZoneInfo() {
+        guard isCloudKitAvailable else { return }
+        
+        database.fetchAllRecordZones { [weak self] zones, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("Debug: Error fetching CloudKit zones: \(error)")
+                    self?.recordZoneInfo = nil
+                } else if let zones = zones, !zones.isEmpty {
+                    let zoneNames = zones.map { $0.zoneID.zoneName }.joined(separator: ", ")
+                    self?.recordZoneInfo = "\(zones.count) Zone(n): \(zoneNames)"
+                    print("Debug: Fetched CloudKit zones: \(zoneNames)")
+                } else {
+                    self?.recordZoneInfo = "Keine Zonen gefunden"
+                }
+            }
+        }
     }
     
     // MARK: - Error Handling

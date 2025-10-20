@@ -184,12 +184,12 @@ class WidgetGradingHelpers {
     /// Points system colors (15 = green best, 0 = pink worst)
     private static func pointsGradeColor(for value: Double) -> Color {
         switch value {
-        case 13...15: return .green      // Debug: 13-15 points (excellent)
-        case 10..<13: return .blue       // Debug: 10-12 points (good)
-        case 7..<10: return .cyan        // Debug: 7-9 points (satisfactory)
-        case 4..<7: return .orange       // Debug: 4-6 points (sufficient)
-        case 1..<4: return .red          // Debug: 1-3 points (poor)
-        case 0..<1: return .pink         // Debug: 0 points (insufficient)
+        case 12...15: return .green      // Debug: 12-15 points (excellent = 1+ to 1-)
+        case 9..<12: return .blue        // Debug: 9-11 points (good = 2+ to 2-)
+        case 6..<9: return .cyan         // Debug: 6-8 points (satisfactory = 3+ to 3-)
+        case 3..<6: return .orange       // Debug: 3-5 points (sufficient = 4+ to 4-)
+        case 0.001..<3: return .red      // Debug: 1-2 points (poor = 5+ to 5-)
+        case 0...0: return .pink         // Debug: 0 points (insufficient = 6)
         default: return .gray
         }
     }
