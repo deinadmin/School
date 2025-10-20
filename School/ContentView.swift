@@ -484,6 +484,7 @@ struct ContentView: View {
                                             )
                                     }
                                     .buttonStyle(.plain)
+                                    .sensoryFeedback(.increase, trigger: isGridView)
                                     
                                     Button(action: {
                                         withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
@@ -501,6 +502,7 @@ struct ContentView: View {
                                             )
                                     }
                                     .buttonStyle(.plain)
+                                    .sensoryFeedback(.increase, trigger: isGridView)
                                 }
                             }
                             .padding(.horizontal, 4)
@@ -818,6 +820,10 @@ struct StatisticsCardView: View {
     @Environment(\.modelContext) private var modelContext
     // Debug: App Storage for rounding setting to trigger UI updates
     @AppStorage("roundPointAverages") private var roundPointAverages = true
+    // Debug: Persistent storage for minimized state
+    @AppStorage("schnittIsMinimized") private var storedIsMinimized = false
+    // Debug: State for minimizing/maximizing the schnitt section (for smooth animations)
+    @State private var isMinimized = false
     
     // Debug: Calculate overall statistics for the selected period (includes final grades)
     private var overallStatistics: (average: Double?, totalGrades: Int, subjectsWithGrades: Int) {
@@ -852,36 +858,41 @@ struct StatisticsCardView: View {
         HStack(spacing: 16) {
             // Left side - Main average (matching widget design)
             VStack(alignment: .leading, spacing: 8) {
-                // Header (matching widget)
-                HStack {
-                    Image(systemName: "chart.bar.fill")
-                        .font(.title3)
-                        .foregroundColor(.white)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Schnitt")
-                            .font(.headline)
-                            .fontWeight(.bold)
+                // Header (matching widget) - hidden when minimized
+                if !isMinimized {
+                    HStack {
+                        Image(systemName: "chart.bar.fill")
+                            .font(.title3)
                             .foregroundColor(.white)
                         
-                        Text(selectedSchoolYear.displayName)
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.8))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Schnitt")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                            
+                            Text(selectedSchoolYear.displayName)
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.8))
+                        }
                     }
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
                 }
                 
-                Spacer()
+                if !isMinimized {
+                    Spacer()
+                }
                 
                 // Main average display (matching widget)
                 if let average = overallStatistics.average {
                     HStack(alignment: .bottom, spacing: 4) {
                         Text("⌀")
-                            .font(.system(size: 60))
+                            .font(.system(size: isMinimized ? 30 : 60))
                             .bold()
                             .foregroundColor(.white.opacity(0.8))
                         
                         Text(GradingSystemHelpers.gradeDisplayText(for: average, system: selectedSchoolYear.gradingSystem))
-                            .font(.system(size: 60))
+                            .font(.system(size: isMinimized ? 30 : 60))
                             .fontWeight(.bold)
                             .foregroundColor(.white)
                             .minimumScaleFactor(0.7)
@@ -889,7 +900,7 @@ struct StatisticsCardView: View {
                     }
                 } else {
                     Text("Keine Noten")
-                        .font(.title2)
+                        .font(isMinimized ? .body : .title2)
                         .foregroundColor(.white.opacity(0.8))
                 }
             }
@@ -897,38 +908,53 @@ struct StatisticsCardView: View {
             
             // Right side - Statistics (matching widget)
             VStack(alignment: .trailing, spacing: 12) {
-                // Semester indicator (matching widget)
-                Text(selectedSemester.displayName)
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.white.opacity(0.2))
-                    .cornerRadius(8)
-                    .foregroundColor(.white)
-                
-                Spacer()
-                
-                // Statistics (matching widget)
-                VStack(alignment: .trailing, spacing: 4) {
-                    if overallStatistics.subjectsWithGrades > 0 {
-                        Text("\(overallStatistics.subjectsWithGrades) \(overallStatistics.subjectsWithGrades == 1 ? "Fach" : "Fächer")")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.9))
+                HStack {
+                    Spacer()
+                    // Minimize/maximize button (replaces semester indicator)
+                    Button(action: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                            isMinimized.toggle()
+                        }
+                    }) {
+                        Image(systemName: "chevron.up.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .symbolRenderingMode(.hierarchical)
+                            .rotationEffect(.degrees(isMinimized ? 180 : 0), anchor: .center)
                     }
-                    
-                    if overallStatistics.totalGrades > 0 {
-                        Text("\(overallStatistics.totalGrades) \(overallStatistics.totalGrades == 1 ? "Note" : "Noten")")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.9))
+                    .buttonStyle(.plain)
+                    .sensoryFeedback(.increase, trigger: isMinimized)
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                
+                if !isMinimized {
+                    Spacer()
+                }
+                
+                // Statistics (matching widget) - hidden when minimized
+                if !isMinimized {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        if overallStatistics.subjectsWithGrades > 0 {
+                            Text("\(overallStatistics.subjectsWithGrades) \(overallStatistics.subjectsWithGrades == 1 ? "Fach" : "Fächer")")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.9))
+                        }
+                        
+                        if overallStatistics.totalGrades > 0 {
+                            Text("\(overallStatistics.totalGrades) \(overallStatistics.totalGrades == 1 ? "Note" : "Noten")")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.9))
+                        }
+                        
+                        Text(selectedSchoolYear.gradingSystem.displayName)
+                            .font(.caption2)
+                            .foregroundColor(.white.opacity(0.7))
                     }
-                    
-                    Text(selectedSchoolYear.gradingSystem.displayName)
-                        .font(.caption2)
-                        .foregroundColor(.white.opacity(0.7))
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
                 }
             }
         }
-        .padding(20)
+        .padding(isMinimized ? 16 : 20)
         .background(
             RoundedRectangle(cornerRadius: 20)
                 .fill(
@@ -941,6 +967,14 @@ struct StatisticsCardView: View {
                 .shadow(color: Color.black.opacity(0.15), radius: 16, y: 6)
         )
         .id(roundPointAverages) // Debug: Force UI update when rounding setting changes
+        .onAppear {
+            // Debug: Restore minimized state from persistent storage on appear
+            isMinimized = storedIsMinimized
+        }
+        .onChange(of: isMinimized) { _, newValue in
+            // Debug: Save minimized state to persistent storage when it changes
+            storedIsMinimized = newValue
+        }
     }
     
     // Debug: Dynamic gradient colors based on performance (matching widget design)
