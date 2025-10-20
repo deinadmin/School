@@ -1410,7 +1410,7 @@ struct SettingsView: View {
             
             do {
                 let encoder = JSONEncoder()
-                encoder.dateEncodingStrategy = .iso8601
+                encoder.dateEncodingStrategy = .secondsSince1970
                 encoder.outputFormatting = .prettyPrinted
                 
                 let jsonData = try encoder.encode(exportData)
@@ -1594,7 +1594,7 @@ struct SettingsView: View {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let decoder = JSONDecoder()
-                decoder.dateDecodingStrategy = .iso8601
+                decoder.dateDecodingStrategy = .secondsSince1970
                 
                 let importData = try decoder.decode(ExportedData.self, from: jsonData)
                 
@@ -1614,9 +1614,9 @@ struct SettingsView: View {
                 
                 // Debug: Try fallback decoding strategies
                 do {
-                    print("Debug: Trying fallback decoding with different date strategy...")
+                    print("Debug: Trying fallback decoding with iso8601 date strategy...")
                     let fallbackDecoder = JSONDecoder()
-                    fallbackDecoder.dateDecodingStrategy = .secondsSince1970
+                    fallbackDecoder.dateDecodingStrategy = .iso8601
                     
                     let importData = try fallbackDecoder.decode(ExportedData.self, from: jsonData)
                     
