@@ -21,6 +21,8 @@ struct ContentView: View {
     @State private var selectedSubject: Subject? = nil // Debug: For iPad sidebar selection
     @State private var columnVisibility: NavigationSplitViewVisibility = .all // Debug: Control sidebar visibility on iPad
     @State private var isGridView = false // Debug: State for animated view toggle (list/grid) for subjects (iPhone only)
+    @State private var subjectToEdit: Subject? = nil // Debug: Subject being edited (for showing edit sheet)
+    @State private var subjectToDelete: Subject? = nil // Debug: Subject to delete (for showing delete alert)
     // Debug: App Storage for settings that affect main view
     @AppStorage("showMotivationalCharacter") private var showMotivationalCharacter = false
     @AppStorage("roundPointAverages") private var roundPointAverages = true
@@ -111,6 +113,23 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView(onImportComplete: self.refreshCurrentSelection)
+        }
+        .sheet(item: $subjectToEdit) { subject in
+            EditSubjectView(subject: subject)
+        }
+        .alert("Fach löschen?", isPresented: .constant(subjectToDelete != nil), presenting: subjectToDelete) { subject in
+            Button("Löschen", role: .destructive) {
+                DataManager.deleteSubject(subject, from: modelContext)
+                if selectedSubject?.persistentModelID == subject.persistentModelID {
+                    selectedSubject = nil
+                }
+                subjectToDelete = nil
+            }
+            Button("Abbrechen", role: .cancel) {
+                subjectToDelete = nil
+            }
+        } message: { subject in
+            Text("Das Fach \"\(subject.name)\" und alle zugehörigen Noten werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.")
         }
         .onAppear {
             loadSelectedPeriod()
@@ -362,11 +381,14 @@ struct ContentView: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
+            Button(action: {
+                subjectToEdit = subject
+            }) {
+                Label("Fach bearbeiten", systemImage: "pencil")
+            }
+            
             Button(role: .destructive) {
-                DataManager.deleteSubject(subject, from: modelContext)
-                if selectedSubject?.persistentModelID == subject.persistentModelID {
-                    selectedSubject = nil
-                }
+                subjectToDelete = subject
             } label: {
                 Label("Fach löschen", systemImage: "trash")
             }
@@ -545,8 +567,11 @@ struct ContentView: View {
                                 SubjectGridView(
                                     subjects: sortedSubjects,
                                     selectedSchoolYear: selectedSchoolYear,
-                                    selectedSemester: selectedSemester
+                                    selectedSemester: selectedSemester,
+                                    subjectToEdit: $subjectToEdit,
+                                    subjectToDelete: $subjectToDelete
                                 )
+                                .id("gridView")
                                 .transition(.asymmetric(
                                     insertion: .scale(scale: 0.95).combined(with: .opacity),
                                     removal: .scale(scale: 0.95).combined(with: .opacity)
@@ -562,12 +587,16 @@ struct ContentView: View {
                                             SubjectRowView(
                                                 subject: subject,
                                                 selectedSchoolYear: selectedSchoolYear,
-                                                selectedSemester: selectedSemester
+                                                selectedSemester: selectedSemester,
+                                                subjectToEdit: $subjectToEdit,
+                                                subjectToDelete: $subjectToDelete
                                             )
+                                            .id("list-\(subject.persistentModelID)")
                                         }
                                         .buttonStyle(.plain) // Debug: Remove default button styling for custom appearance
                                     }
                                 }
+                                .id("listView")
                                 .transition(.asymmetric(
                                     insertion: .scale(scale: 0.95).combined(with: .opacity),
                                     removal: .scale(scale: 0.95).combined(with: .opacity)
@@ -683,6 +712,20 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showingSettings) {
                 SettingsView(onImportComplete: self.refreshCurrentSelection)
+            }
+            .sheet(item: $subjectToEdit) { subject in
+                EditSubjectView(subject: subject)
+            }
+            .alert("Fach löschen?", isPresented: .constant(subjectToDelete != nil), presenting: subjectToDelete) { subject in
+                Button("Löschen", role: .destructive) {
+                    DataManager.deleteSubject(subject, from: modelContext)
+                    subjectToDelete = nil
+                }
+                Button("Abbrechen", role: .cancel) {
+                    subjectToDelete = nil
+                }
+            } message: { subject in
+                Text("Das Fach \"\(subject.name)\" und alle zugehörigen Noten werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.")
             }
             .onAppear {
                 loadSelectedPeriod()
@@ -921,6 +964,7 @@ struct StatisticsCardView: View {
                             .foregroundColor(.white)
                             .symbolRenderingMode(.hierarchical)
                             .rotationEffect(.degrees(isMinimized ? 180 : 0), anchor: .center)
+                            .padding(.trailing, isMinimized ? 4 : 0)
                     }
                     .buttonStyle(.plain)
                     .sensoryFeedback(.increase, trigger: isMinimized)
@@ -1000,7 +1044,8 @@ struct SubjectRowView: View {
     let selectedSchoolYear: SchoolYear
     let selectedSemester: Semester
     @Environment(\.modelContext) private var modelContext
-    @State private var showingDeleteAlert = false
+    @Binding var subjectToEdit: Subject?
+    @Binding var subjectToDelete: Subject?
     // Debug: App Storage for rounding setting to trigger UI updates
     @AppStorage("roundPointAverages") private var roundPointAverages = true
     
@@ -1078,19 +1123,17 @@ struct SubjectRowView: View {
                 .stroke(Color(.systemGray5), lineWidth: 1)
         )
         .contextMenu {
+            Button(action: {
+                subjectToEdit = subject
+            }) {
+                Label("Fach bearbeiten", systemImage: "pencil")
+            }
+            
             Button(role: .destructive) {
-                showingDeleteAlert = true
+                subjectToDelete = subject
             } label: {
                 Label("Fach löschen", systemImage: "trash")
             }
-        }
-        .alert("Fach löschen?", isPresented: $showingDeleteAlert) {
-            Button("Löschen", role: .destructive) {
-                DataManager.deleteSubject(subject, from: modelContext)
-            }
-            Button("Abbrechen", role: .cancel) { }
-        } message: {
-            Text("Das Fach \"\(subject.name)\" und alle zugehörigen Noten werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.")
         }
         .id(roundPointAverages) // Debug: Force UI update when rounding setting changes
     }
@@ -1101,6 +1144,8 @@ struct SubjectGridView: View {
     let subjects: [Subject]
     let selectedSchoolYear: SchoolYear
     let selectedSemester: Semester
+    @Binding var subjectToEdit: Subject?
+    @Binding var subjectToDelete: Subject?
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     // Debug: App Storage for rounding setting to trigger UI updates
@@ -1123,8 +1168,11 @@ struct SubjectGridView: View {
                     SubjectGridItemView(
                         subject: subject,
                         selectedSchoolYear: selectedSchoolYear,
-                        selectedSemester: selectedSemester
+                        selectedSemester: selectedSemester,
+                        subjectToEdit: $subjectToEdit,
+                        subjectToDelete: $subjectToDelete
                     )
+                    .id("grid-\(subject.persistentModelID)")
                 }
                 .buttonStyle(.plain)
             }
@@ -1139,7 +1187,8 @@ struct SubjectGridItemView: View {
     let selectedSchoolYear: SchoolYear
     let selectedSemester: Semester
     @Environment(\.modelContext) private var modelContext
-    @State private var showingDeleteAlert = false
+    @Binding var subjectToEdit: Subject?
+    @Binding var subjectToDelete: Subject?
     
     // Debug: Get grades for this subject in the selected period
     private var gradesForSelectedPeriod: [Grade] {
@@ -1207,19 +1256,17 @@ struct SubjectGridItemView: View {
                 .stroke(Color(.systemGray5), lineWidth: 1)
         )
         .contextMenu {
+            Button(action: {
+                subjectToEdit = subject
+            }) {
+                Label("Fach bearbeiten", systemImage: "pencil")
+            }
+            
             Button(role: .destructive) {
-                showingDeleteAlert = true
+                subjectToDelete = subject
             } label: {
                 Label("Fach löschen", systemImage: "trash")
             }
-        }
-        .alert("Fach löschen?", isPresented: $showingDeleteAlert) {
-            Button("Löschen", role: .destructive) {
-                DataManager.deleteSubject(subject, from: modelContext)
-            }
-            Button("Abbrechen", role: .cancel) { }
-        } message: {
-            Text("Das Fach \"\(subject.name)\" und alle zugehörigen Noten werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.")
         }
     }
 }

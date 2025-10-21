@@ -25,6 +25,7 @@ struct SubjectDetailView: View {
     @State private var showingFixWeights = false // Debug: Show weight fixing sheet
     @State private var showingFinalGradeSheet = false // Debug: Show final grade entry sheet
     @State private var showingRemoveFinalGradeAlert = false // Debug: Show remove final grade confirmation
+    @State private var showingEditSubject = false // Debug: Show edit subject sheet
     
     // Debug: Get grades for this subject in the selected period
     private var grades: [Grade] {
@@ -95,6 +96,17 @@ struct SubjectDetailView: View {
                         .foregroundColor(Color(hex: subject.colorHex))
                     }
                 }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        showingEditSubject = true
+                    }) {
+                        Image(systemName: "pencil")
+                            .font(.body)
+                            .fontWeight(.medium)
+                            .foregroundColor(Color(hex: subject.colorHex))
+                    }
+                }
             }
             .sheet(isPresented: $showingAddGrade) {
                 print("Debug: SubjectDetailView - General sheet opening without preselection")
@@ -163,6 +175,9 @@ struct SubjectDetailView: View {
                 Button("Abbrechen", role: .cancel) { }
             } message: {
                 Text("Die Endnote wird entfernt und der berechnete Durchschnitt wird wieder verwendet.")
+            }
+            .sheet(isPresented: $showingEditSubject) {
+                EditSubjectView(subject: subject)
             }
         }
         .tint(Color(hex: subject.colorHex)) // Debug: Apply subject color to navigation elements (back button, toolbar buttons)
