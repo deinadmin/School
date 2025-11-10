@@ -21,11 +21,8 @@ struct AddGradeView: View {
     @State private var gradeValue: Double? = nil // Debug: No grade selected by default
     @State private var selectedGradeType: GradeType? = nil // Debug: Will be set in onAppear 
     @State private var gradeDate: Date = Date()
-    
-    // Debug: Computed property to get all available grade types for this subject
-    private var allGradeTypes: [GradeType] {
-        return GradeTypeManager.getGradeTypes(for: subject, from: modelContext)
-    }
+    @State private var allGradeTypes: [GradeType] = [] // Debug: Cached grade types for stable identity
+    @State private var hasInitialized = false // Debug: Track if we've already initialized to avoid resetting on navigation
     
     // Debug: Default initializer for backwards compatibility
     init(subject: Subject, schoolYear: SchoolYear, semester: Semester, preselectedGradeType: GradeType? = nil) {
@@ -71,8 +68,17 @@ struct AddGradeView: View {
                 }
             }
             .onAppear {
-                // Debug: Always initialize grade type when view appears to ensure correct preselection
-                print("Debug: onAppear called")
+                // Debug: Only initialize once to prevent resetting when navigating back from picker
+                guard !hasInitialized else {
+                    print("Debug: onAppear called but already initialized, skipping to preserve user selection")
+                    return
+                }
+                
+                print("Debug: onAppear called - first initialization")
+                
+                // Debug: Load grade types from context and cache them for stable identity
+                allGradeTypes = GradeTypeManager.getGradeTypes(for: subject, from: modelContext)
+                
                 print("Debug: preselectedGradeType: \(preselectedGradeType?.name ?? "nil")")
                 print("Debug: Available grade types: \(allGradeTypes.map { $0.name }.joined(separator: ", "))")
                 
@@ -103,6 +109,9 @@ struct AddGradeView: View {
                     selectedGradeType = allGradeTypes[0]
                     print("Debug: No preselection provided, fallback to first grade type: \(allGradeTypes[0].name)")
                 }
+                
+                // Debug: Mark as initialized so we don't reset on subsequent onAppear calls
+                hasInitialized = true
             }
         }
     }
@@ -212,9 +221,12 @@ struct AddGradeView: View {
             if !allGradeTypes.isEmpty {
                 Picker("Typ", selection: Binding(
                     get: { selectedGradeType ?? allGradeTypes.first! },
-                    set: { selectedGradeType = $0 }
+                    set: { 
+                        print("Debug: Picker selection changed to: \($0.name)")
+                        selectedGradeType = $0 
+                    }
                 )) {
-                    ForEach(allGradeTypes, id: \.name) { type in
+                    ForEach(allGradeTypes, id: \.persistentModelID) { type in
                         HStack {
                             Image(systemName: type.icon)
                             Text(type.name)

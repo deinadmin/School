@@ -93,8 +93,6 @@ struct EditSubjectView: View {
                 selectedIcon = subject.icon
             }
         }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
     }
     
     // Debug: Subject name input

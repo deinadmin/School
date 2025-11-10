@@ -178,6 +178,10 @@ struct SubjectDetailView: View {
             }
             .sheet(isPresented: $showingEditSubject) {
                 EditSubjectView(subject: subject)
+                #if os(iOS)
+                    .presentationDetents(UIDevice.current.userInterfaceIdiom == .phone ? [.medium] : [.large])
+                    .presentationDragIndicator(UIDevice.current.userInterfaceIdiom == .phone ? .visible : .hidden)
+                #endif
             }
         }
         .tint(Color(hex: subject.colorHex)) // Debug: Apply subject color to navigation elements (back button, toolbar buttons)
@@ -927,6 +931,16 @@ struct SetFinalGradeView: View {
     @State private var showingError = false
     @State private var errorMessage = ""
     
+    // Debug: Computed property for final grade range text (simple format for traditional system)
+    private var finalGradeRangeText: String {
+        switch schoolYear.gradingSystem {
+        case .traditional:
+            return "1-6" // Debug: Simple format without plus/minus for final grades
+        case .points:
+            return "\(Int(schoolYear.gradingSystem.minValue)) P - \(Int(schoolYear.gradingSystem.maxValue)) P"
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -1024,7 +1038,7 @@ struct SetFinalGradeView: View {
                             .font(.headline)
                             .fontWeight(.medium)
                         
-                        Text("Bereich: \(GradingSystemHelpers.gradeDisplayText(for: schoolYear.gradingSystem.minValue, system: schoolYear.gradingSystem)) - \(GradingSystemHelpers.gradeDisplayText(for: schoolYear.gradingSystem.maxValue, system: schoolYear.gradingSystem))")
+                        Text("Bereich: \(finalGradeRangeText)")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }

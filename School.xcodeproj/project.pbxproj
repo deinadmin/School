@@ -197,11 +197,12 @@
 				};
 			};
 			buildConfigurationList = C352089B2DF1F7B0001DB70D /* Build configuration list for PBXProject "School" */;
-			developmentRegion = en;
+			developmentRegion = de;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
+				de,
 			);
 			mainGroup = C35208972DF1F7B0001DB70D;
 			minimizedProjectReferenceProxies = 1;
@@ -457,7 +458,7 @@
 				DEVELOPMENT_TEAM = L7QA44TPN4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SchoolWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = SchoolWidget;
+				INFOPLIST_KEY_CFBundleDisplayName = "School Widget";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -486,7 +487,7 @@
 				DEVELOPMENT_TEAM = L7QA44TPN4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SchoolWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = SchoolWidget;
+				INFOPLIST_KEY_CFBundleDisplayName = "School Widget";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (

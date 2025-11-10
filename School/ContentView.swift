@@ -80,6 +80,18 @@ struct ContentView: View {
         }
     }
     
+    // Debug: Check if there are any grades for the selected period
+    private var hasGradesForSelectedPeriod: Bool {
+        for subject in allSubjects {
+            let grades = DataManager.getGrades(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+            let hasFinalGrade = DataManager.hasFinalGrade(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+            if !grades.isEmpty || hasFinalGrade {
+                return true
+            }
+        }
+        return false
+    }
+    
     var body: some View {
         // Debug: Use iPad layout for regular horizontal size class, iPhone layout otherwise
         if horizontalSizeClass == .regular {
@@ -162,6 +174,9 @@ struct ContentView: View {
     private var iPadSidebar: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                // Debug: School year picker
+                CardBasedSchoolPicker(selectedSchoolYear: $selectedSchoolYear, selectedSemester: $selectedSemester)
+                
                 // Debug: Quick grade add button at the top (only when subjects exist)
                 if !sortedSubjects.isEmpty {
                     Button(action: {
@@ -178,24 +193,21 @@ struct ContentView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
-                        .glassEffect(.regular.tint(.accentColor.opacity(0.9)), in: RoundedRectangle(cornerRadius: 14))
-                        .contentShape(RoundedRectangle(cornerRadius: 14))
+                        .glassEffect(.regular.tint(.accentColor.opacity(0.9)), in: RoundedRectangle(cornerRadius: 35))
+                        .contentShape(RoundedRectangle(cornerRadius: 35))
                     }
                     .buttonStyle(.plain)
                 }
                 
-                // Debug: Statistics card (Gesamtschnitt)
-                if !sortedSubjects.isEmpty {
+                // Debug: Statistics card (Gesamtschnitt) - only show if grades exist
+                if hasGradesForSelectedPeriod {
                     StatisticsCardView(
                         subjects: sortedSubjects,
                         selectedSchoolYear: selectedSchoolYear,
                         selectedSemester: selectedSemester
                     )
                 }
-                
-                // Debug: School year picker beneath statistics
-                CardBasedSchoolPicker(selectedSchoolYear: $selectedSchoolYear, selectedSemester: $selectedSemester)
-                
+                                
                 // Debug: Subjects section header with add button
                 HStack(alignment: .center, spacing: 12) {
                     Text("Fächer")
@@ -285,7 +297,7 @@ struct ContentView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
         }
-        .glassEffect(.regular.tint(.accentColor.opacity(0.8)), in: RoundedRectangle(cornerRadius: 14))
+        .glassEffect(.regular.tint(.accentColor.opacity(0.8)), in: RoundedRectangle(cornerRadius: 35))
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
     }
@@ -1000,7 +1012,7 @@ struct StatisticsCardView: View {
         }
         .padding(isMinimized ? 16 : 20)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 35)
                 .fill(
                     LinearGradient(
                         colors: gradientColors,
