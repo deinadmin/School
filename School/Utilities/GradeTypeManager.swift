@@ -20,19 +20,19 @@ class GradeTypeManager {
     /// Add a new grade type to a subject
     static func addGradeType(name: String, weight: Int, icon: String, for subject: Subject, in context: ModelContext) {
         DataManager.createGradeType(name: name, weight: weight, icon: icon, for: subject, in: context)
-        print("Debug: Added new grade type: '\(name)' to subject '\(subject.name)'")
+        debugLog(" Added new grade type: '\(name)' to subject '\(subject.name)'")
     }
     
     /// Update an existing grade type
     static func updateGradeType(_ gradeType: GradeType, name: String, weight: Int, icon: String, in context: ModelContext) {
         DataManager.updateGradeType(gradeType, name: name, weight: weight, icon: icon, in: context)
-        print("Debug: Updated grade type: '\(name)'")
+        debugLog(" Updated grade type: '\(name)'")
     }
     
     /// Delete a grade type
     static func deleteGradeType(_ gradeType: GradeType, from context: ModelContext) {
         DataManager.deleteGradeType(gradeType, from: context)
-        print("Debug: Deleted grade type: '\(gradeType.name)'")
+        debugLog(" Deleted grade type: '\(gradeType.name)'")
     }
     
     // MARK: - Legacy methods for backwards compatibility
@@ -40,25 +40,25 @@ class GradeTypeManager {
     /// Legacy method for backwards compatibility
     static func addCustomGradeType(_ gradeType: GradeType) {
         // Debug: This method can no longer work without context and subject
-        print("Debug: addCustomGradeType is deprecated - use addGradeType(name:weight:icon:for:in:) instead")
+        debugLog(" addCustomGradeType is deprecated - use addGradeType(name:weight:icon:for:in:) instead")
     }
     
     /// Legacy method for backwards compatibility  
     static func updateCustomGradeType(_ updatedType: GradeType) {
         // Debug: This method can no longer work without context
-        print("Debug: updateCustomGradeType is deprecated - use updateGradeType(_:name:weight:icon:in:) instead")
+        debugLog(" updateCustomGradeType is deprecated - use updateGradeType(_:name:weight:icon:in:) instead")
     }
     
     /// Legacy method for backwards compatibility
     static func deleteCustomGradeType(_ gradeType: GradeType) {
         // Debug: This method can no longer work without context
-        print("Debug: deleteCustomGradeType is deprecated - use deleteGradeType(_:from:) instead")
+        debugLog(" deleteCustomGradeType is deprecated - use deleteGradeType(_:from:) instead")
     }
     
     /// Legacy method for backwards compatibility
     static func getAllGradeTypes() -> [GradeType] {
         // Debug: This method can no longer work without context and subject
-        print("Debug: getAllGradeTypes is deprecated - use getGradeTypes(for:from:) instead")
+        debugLog(" getAllGradeTypes is deprecated - use getGradeTypes(for:from:) instead")
         return []
     }
     

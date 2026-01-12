@@ -38,7 +38,7 @@ class WidgetHelper {
             return total + filteredGrades.count
         }
         
-        print("Debug: Updating widget - Average: \(overallAverage?.description ?? "nil"), Subjects: \(subjectCount), Grades: \(totalGrades)")
+        debugLog(" Updating widget - Average: \(overallAverage?.description ?? "nil"), Subjects: \(subjectCount), Grades: \(totalGrades)")
         
         // Debug: Save to shared storage
         WidgetDataManager.saveWidgetData(
@@ -191,7 +191,7 @@ class WidgetDataManager {
         selectedSemester: Semester
     ) {
         guard let defaults = sharedDefaults else {
-            print("Debug: Widget - Could not access shared UserDefaults")
+            debugLog(" Widget - Could not access shared UserDefaults")
             return
         }
         
@@ -212,7 +212,7 @@ class WidgetDataManager {
         // Debug: Also sync user settings to App Group for widget access
         syncUserSettingsToAppGroup()
         
-        print("Debug: Widget data saved - Average: \(overallAverage?.description ?? "nil"), Subjects: \(subjectCount), Grades: \(gradeCount)")
+        debugLog(" Widget data saved - Average: \(overallAverage?.description ?? "nil"), Subjects: \(subjectCount), Grades: \(gradeCount)")
         
         // Debug: Trigger widget refresh
         WidgetCenter.shared.reloadAllTimelines()
@@ -231,7 +231,7 @@ class WidgetDataManager {
         defaults.removeObject(forKey: gradingSystemKey)
         defaults.removeObject(forKey: lastUpdateKey)
         
-        print("Debug: Widget data cleared")
+        debugLog(" Widget data cleared")
         WidgetCenter.shared.reloadAllTimelines()
     }
     
@@ -239,7 +239,7 @@ class WidgetDataManager {
     /// Debug: Validation function for setup
     static func validateAppGroupAccess() -> Bool {
         guard let defaults = sharedDefaults else {
-            print("Debug: Widget - App Group '\(appGroupIdentifier)' not accessible")
+            debugLog(" Widget - App Group '\(appGroupIdentifier)' not accessible")
             return false
         }
         
@@ -252,7 +252,7 @@ class WidgetDataManager {
         defaults.removeObject(forKey: testKey)
         
         let isWorking = readValue == testValue
-        print("Debug: Widget - App Group access test: \(isWorking ? "SUCCESS" : "FAILED")")
+        debugLog(" Widget - App Group access test: \(isWorking ? "SUCCESS" : "FAILED")")
         return isWorking
     }
     
@@ -262,14 +262,14 @@ class WidgetDataManager {
     /// Debug: Called by debug function to show what widget sees
     static func loadWidgetData() -> SchoolWidgetEntry {
         guard let defaults = sharedDefaults else {
-            print("Debug: Widget - Could not access shared UserDefaults - App Group not configured")
+            debugLog(" Widget - Could not access shared UserDefaults - App Group not configured")
             return SchoolWidgetEntry.emptyEntry
         }
         
         // Debug: Check if any data exists in shared storage
         let lastUpdate = defaults.object(forKey: lastUpdateKey) as? Date
         if lastUpdate == nil {
-            print("Debug: Widget - No widget data found in shared storage, app hasn't updated widget yet")
+            debugLog(" Widget - No widget data found in shared storage, app hasn't updated widget yet")
             return SchoolWidgetEntry.emptyEntry
         }
         
@@ -320,7 +320,7 @@ class WidgetDataManager {
         let showMotivationalCharacter = UserDefaults.standard.object(forKey: "showMotivationalCharacter") as? Bool ?? false
         sharedDefaults.set(showMotivationalCharacter, forKey: "showMotivationalCharacter")
         
-        print("Debug: Synced user settings to App Group - Round points: \(roundPointAverages)")
+        debugLog(" Synced user settings to App Group - Round points: \(roundPointAverages)")
     }
 }
 

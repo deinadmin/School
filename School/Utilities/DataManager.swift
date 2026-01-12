@@ -9,9 +9,165 @@ import Foundation
 import SwiftData
 import WidgetKit
 
+// MARK: - Debug Logging Utility
+/// Performance: This function compiles to nothing in release builds
+/// Usage: Replace print("Debug: ...") with debugLog("...")
+@inline(__always)
+func debugLog(_ message: @autoclosure () -> String) {
+    #if DEBUG
+    print("Debug: \(message())")
+    #endif
+}
+
 /// DataManager for SwiftData operations
 /// Debug: Provides helper methods for working with Subject, GradeType and Grade models
 class DataManager {
+    
+    // MARK: - Batch Data Caching
+    
+    /// Cached subject statistics to avoid N+1 queries
+    /// Performance: Computed once per render cycle instead of per-subject
+    struct SubjectStatistics: Equatable {
+        let subjectID: PersistentIdentifier
+        let average: Double?
+        let gradeCount: Int
+        let hasFinalGrade: Bool
+        
+        static func == (lhs: SubjectStatistics, rhs: SubjectStatistics) -> Bool {
+            lhs.subjectID == rhs.subjectID &&
+            lhs.average == rhs.average &&
+            lhs.gradeCount == rhs.gradeCount &&
+            lhs.hasFinalGrade == rhs.hasFinalGrade
+        }
+    }
+    
+    /// Batch fetch all subject statistics in a single pass
+    /// Performance: Eliminates N+1 query pattern by computing all averages at once
+    static func batchGetSubjectStatistics(
+        for subjects: [Subject],
+        schoolYear: SchoolYear,
+        semester: Semester,
+        from context: ModelContext
+    ) -> [PersistentIdentifier: SubjectStatistics] {
+        var result: [PersistentIdentifier: SubjectStatistics] = [:]
+        
+        // Pre-fetch all final grades for this period in one query
+        let finalGradesMap = batchGetFinalGrades(for: schoolYear, semester: semester, from: context)
+        
+        for subject in subjects {
+            let subjectID = subject.persistentModelID
+            
+            // Check for final grade first (O(1) lookup from pre-fetched map)
+            let finalGrade = finalGradesMap[subjectID]
+            let hasFinalGrade = finalGrade != nil
+            
+            // Get grades from relationship (already loaded, no extra query)
+            let grades = (subject.grades ?? []).filter { grade in
+                grade.schoolYearStartYear == schoolYear.startYear && 
+                (grade.semester ?? .first) == semester
+            }
+            
+            // Calculate average
+            let average: Double?
+            if let fg = finalGrade {
+                average = fg.value
+            } else if grades.isEmpty {
+                average = nil
+            } else {
+                let totalWeightedPoints = grades.reduce(0.0) { total, grade in
+                    let weight = grade.gradeType?.weight ?? 0
+                    return total + (grade.value * Double(weight))
+                }
+                let totalWeight = grades.reduce(0) { total, grade in
+                    let weight = grade.gradeType?.weight ?? 0
+                    return total + weight
+                }
+                average = totalWeight > 0 ? totalWeightedPoints / Double(totalWeight) : nil
+            }
+            
+            result[subjectID] = SubjectStatistics(
+                subjectID: subjectID,
+                average: average,
+                gradeCount: grades.count,
+                hasFinalGrade: hasFinalGrade
+            )
+        }
+        
+        return result
+    }
+    
+    /// Batch fetch all final grades for a period
+    /// Performance: Single query instead of one per subject
+    private static func batchGetFinalGrades(
+        for schoolYear: SchoolYear,
+        semester: Semester,
+        from context: ModelContext
+    ) -> [PersistentIdentifier: FinalGrade] {
+        let startYear = schoolYear.startYear
+        let descriptor = FetchDescriptor<FinalGrade>(
+            predicate: #Predicate<FinalGrade> { fg in
+                fg.schoolYearStartYear == startYear
+            }
+        )
+        
+        do {
+            let allFinalGrades = try context.fetch(descriptor)
+            var result: [PersistentIdentifier: FinalGrade] = [:]
+            
+            for fg in allFinalGrades where (fg.semester ?? .first) == semester {
+                if let subject = fg.subject {
+                    result[subject.persistentModelID] = fg
+                }
+            }
+            return result
+        } catch {
+            debugLog("Error batch fetching final grades: \(error)")
+            return [:]
+        }
+    }
+    
+    /// Check if any subject has grades for selected period (batch version)
+    /// Performance: Uses pre-computed statistics instead of N queries
+    static func hasAnyGrades(in statistics: [PersistentIdentifier: SubjectStatistics]) -> Bool {
+        statistics.values.contains { $0.gradeCount > 0 || $0.hasFinalGrade }
+    }
+    
+    /// Calculate overall average from batch statistics
+    /// Performance: Uses pre-computed averages instead of recalculating
+    static func calculateOverallAverage(from statistics: [PersistentIdentifier: SubjectStatistics]) -> Double? {
+        let averages = statistics.values.compactMap { $0.average }
+        guard !averages.isEmpty else { return nil }
+        return averages.reduce(0.0, +) / Double(averages.count)
+    }
+    
+    /// Sort subjects by average using pre-computed statistics
+    /// Performance: O(n log n) sort with O(1) average lookups
+    static func sortSubjectsByAverage(
+        _ subjects: [Subject],
+        statistics: [PersistentIdentifier: SubjectStatistics],
+        gradingSystem: GradingSystem
+    ) -> [Subject] {
+        subjects.sorted { subject1, subject2 in
+            let avg1 = statistics[subject1.persistentModelID]?.average
+            let avg2 = statistics[subject2.persistentModelID]?.average
+            
+            switch (avg1, avg2) {
+            case (nil, nil):
+                return subject1.name < subject2.name
+            case (nil, _):
+                return false
+            case (_, nil):
+                return true
+            case (let a1?, let a2?):
+                switch gradingSystem {
+                case .traditional:
+                    return a1 < a2
+                case .points:
+                    return a1 > a2
+                }
+            }
+        }
+    }
     
     // MARK: - Subject Operations
     
@@ -24,7 +180,7 @@ class DataManager {
         do {
             return try context.fetch(descriptor)
         } catch {
-            print("Debug: Error fetching subjects: \(error)")
+            debugLog(" Error fetching subjects: \(error)")
             return []
         }
     }
@@ -44,9 +200,9 @@ class DataManager {
         do {
             try context.save()
             let typeDescription = customGradeTypes != nil ? "custom grade types" : "default grade types"
-            print("Debug: Subject '\(name)' created successfully with \(typeDescription)")
+            debugLog(" Subject '\(name)' created successfully with \(typeDescription)")
         } catch {
-            print("Debug: Error saving subject: \(error)")
+            debugLog(" Error saving subject: \(error)")
         }
     }
     
@@ -61,7 +217,7 @@ class DataManager {
             )
             context.insert(gradeType)
         }
-        print("Debug: Created \(GradeType.defaultTypes.count) default grade types for subject '\(subject.name)'")
+        debugLog(" Created \(GradeType.defaultTypes.count) default grade types for subject '\(subject.name)'")
     }
     
     /// Create custom grade types for a subject
@@ -75,7 +231,7 @@ class DataManager {
             )
             context.insert(gradeType)
         }
-        print("Debug: Created \(customTypes.count) custom grade types for subject '\(subject.name)': \(customTypes.map { $0.name }.joined(separator: ", "))")
+        debugLog(" Created \(customTypes.count) custom grade types for subject '\(subject.name)': \(customTypes.map { $0.name }.joined(separator: ", "))")
     }
     
     /// Delete a subject and all its grades and grade types
@@ -84,9 +240,9 @@ class DataManager {
         
         do {
             try context.save()
-            print("Debug: Subject '\(subject.name)' deleted successfully")
+            debugLog(" Subject '\(subject.name)' deleted successfully")
         } catch {
-            print("Debug: Error deleting subject: \(error)")
+            debugLog(" Error deleting subject: \(error)")
         }
     }
     
@@ -106,9 +262,9 @@ class DataManager {
         
         do {
             try context.save()
-            print("Debug: Grade type '\(name)' created for subject '\(subject.name)'")
+            debugLog(" Grade type '\(name)' created for subject '\(subject.name)'")
         } catch {
-            print("Debug: Error saving grade type: \(error)")
+            debugLog(" Error saving grade type: \(error)")
         }
     }
     
@@ -120,9 +276,9 @@ class DataManager {
         
         do {
             try context.save()
-            print("Debug: Grade type updated: '\(name)'")
+            debugLog(" Grade type updated: '\(name)'")
         } catch {
-            print("Debug: Error updating grade type: \(error)")
+            debugLog(" Error updating grade type: \(error)")
         }
     }
     
@@ -132,9 +288,9 @@ class DataManager {
         
         do {
             try context.save()
-            print("Debug: Grade type '\(gradeType.name)' deleted successfully")
+            debugLog(" Grade type '\(gradeType.name)' deleted successfully")
         } catch {
-            print("Debug: Error deleting grade type: \(error)")
+            debugLog(" Error deleting grade type: \(error)")
         }
     }
     
@@ -178,7 +334,7 @@ class DataManager {
                 (grade.semester ?? .first) == semester
             }
         } catch {
-            print("Debug: Error fetching grades: \(error)")
+            debugLog(" Error fetching grades: \(error)")
             return []
         }
     }
@@ -190,9 +346,9 @@ class DataManager {
         
         do {
             try context.save()
-            print("Debug: Grade \(value) created for subject '\(subject.name)' with type '\(gradeType.name)' in \(schoolYear.displayName) \(semester.displayName)")
+            debugLog(" Grade \(value) created for subject '\(subject.name)' with type '\(gradeType.name)' in \(schoolYear.displayName) \(semester.displayName)")
         } catch {
-            print("Debug: Error saving grade: \(error)")
+            debugLog(" Error saving grade: \(error)")
         }
     }
     
@@ -202,12 +358,12 @@ class DataManager {
         
         do {
             try context.save()
-            print("Debug: Grade deleted successfully")
+            debugLog(" Grade deleted successfully")
             
             // Debug: Update widget after deleting grade
             updateWidgetAfterGradeChange(from: context)
         } catch {
-            print("Debug: Error deleting grade: \(error)")
+            debugLog(" Error deleting grade: \(error)")
         }
     }
     
@@ -218,7 +374,7 @@ class DataManager {
     static func calculateWeightedAverage(for subject: Subject, schoolYear: SchoolYear, semester: Semester, from context: ModelContext) -> Double? {
         // Debug: Check if final grade exists and return it instead of calculated average
         if let finalGrade = getFinalGrade(for: subject, schoolYear: schoolYear, semester: semester, from: context) {
-            print("Debug: Using final grade for '\(subject.name)' in \(schoolYear.displayName) \(semester.displayName): \(finalGrade.value)")
+            debugLog(" Using final grade for '\(subject.name)' in \(schoolYear.displayName) \(semester.displayName): \(finalGrade.value)")
             return finalGrade.value
         }
         
@@ -239,7 +395,7 @@ class DataManager {
         guard totalWeight > 0 else { return nil }
         
         let average = totalWeightedPoints / Double(totalWeight)
-        print("Debug: Calculated average for '\(subject.name)' in \(schoolYear.displayName) \(semester.displayName): \(average)")
+        debugLog(" Calculated average for '\(subject.name)' in \(schoolYear.displayName) \(semester.displayName): \(average)")
         return average
     }
     
@@ -261,7 +417,7 @@ class DataManager {
         guard totalWeight > 0 else { return nil }
         
         let average = totalWeightedPoints / Double(totalWeight)
-        print("Debug: Calculated overall weighted average from \(grades.count) grades: \(average)")
+        debugLog(" Calculated overall weighted average from \(grades.count) grades: \(average)")
         return average
     }
     
@@ -281,7 +437,7 @@ class DataManager {
         
         // Debug: Calculate simple average of all subject averages for overall grade
         let overallAverage = subjectAverages.reduce(0.0, +) / Double(subjectAverages.count)
-        print("Debug: Calculated overall average with final grades from \(subjectAverages.count) subjects: \(overallAverage)")
+        debugLog(" Calculated overall average with final grades from \(subjectAverages.count) subjects: \(overallAverage)")
         return overallAverage
     }
     
@@ -315,9 +471,9 @@ class DataManager {
         
         do {
             try context.save()
-            print("Debug: Deleted \(gradesToDelete.count) grades of type '\(gradeType.name)' for subject '\(subject.name)'")
+            debugLog(" Deleted \(gradesToDelete.count) grades of type '\(gradeType.name)' for subject '\(subject.name)'")
         } catch {
-            print("Debug: Error deleting grades of type: \(error)")
+            debugLog(" Error deleting grades of type: \(error)")
         }
     }
     
@@ -330,14 +486,14 @@ class DataManager {
         let finalGrades = getAllFinalGrades(for: schoolYear, from: context)
         
         guard !grades.isEmpty || !finalGrades.isEmpty else {
-            print("Debug: No grades or final grades to convert for school year \(schoolYear.displayName)")
+            debugLog(" No grades or final grades to convert for school year \(schoolYear.displayName)")
             return (true, 0, nil)
         }
         
         let oldSystem = schoolYear.gradingSystem
         var convertedCount = 0
         
-        print("Debug: Converting \(grades.count) grades and \(finalGrades.count) final grades from \(oldSystem.displayName) to \(newSystem.displayName)")
+        debugLog(" Converting \(grades.count) grades and \(finalGrades.count) final grades from \(oldSystem.displayName) to \(newSystem.displayName)")
         
         // Debug: Convert regular grades
         for grade in grades {
@@ -347,7 +503,7 @@ class DataManager {
             grade.value = newValue
             convertedCount += 1
             
-            print("Debug: Converted grade \(oldValue) → \(newValue)")
+            debugLog(" Converted grade \(oldValue) → \(newValue)")
         }
         
         // Debug: Convert final grades
@@ -358,15 +514,15 @@ class DataManager {
             finalGrade.value = newValue
             convertedCount += 1
             
-            print("Debug: Converted final grade \(oldValue) → \(newValue)")
+            debugLog(" Converted final grade \(oldValue) → \(newValue)")
         }
         
         do {
             try context.save()
-            print("Debug: Successfully converted \(convertedCount) grades and final grades to \(newSystem.displayName)")
+            debugLog(" Successfully converted \(convertedCount) grades and final grades to \(newSystem.displayName)")
             return (true, convertedCount, nil)
         } catch {
-            print("Debug: Error saving converted grades and final grades: \(error)")
+            debugLog(" Error saving converted grades and final grades: \(error)")
             return (false, 0, "Fehler beim Speichern der konvertierten Noten: \(error.localizedDescription)")
         }
     }
@@ -383,7 +539,7 @@ class DataManager {
         do {
             return try context.fetch(descriptor)
         } catch {
-            print("Debug: Error fetching grades for conversion: \(error)")
+            debugLog(" Error fetching grades for conversion: \(error)")
             return []
         }
     }
@@ -400,7 +556,7 @@ class DataManager {
         do {
             return try context.fetch(descriptor)
         } catch {
-            print("Debug: Error fetching final grades for conversion: \(error)")
+            debugLog(" Error fetching final grades for conversion: \(error)")
             return []
         }
     }
@@ -439,7 +595,7 @@ class DataManager {
                 return (finalGrade.semester ?? .first) == semester && finalGradeSubject.persistentModelID == subject.persistentModelID
             }
         } catch {
-            print("Debug: Error fetching final grade: \(error)")
+            debugLog(" Error fetching final grade: \(error)")
             return nil
         }
     }
@@ -450,21 +606,21 @@ class DataManager {
         // Debug: Check if final grade already exists
         if let existingFinalGrade = getFinalGrade(for: subject, schoolYear: schoolYear, semester: semester, from: context) {
             existingFinalGrade.value = value
-            print("Debug: Updated existing final grade for '\(subject.name)' to \(value)")
+            debugLog(" Updated existing final grade for '\(subject.name)' to \(value)")
         } else {
             let finalGrade = FinalGrade(value: value, schoolYearStartYear: schoolYear.startYear, semester: semester, subject: subject)
             context.insert(finalGrade)
-            print("Debug: Created new final grade for '\(subject.name)': \(value)")
+            debugLog(" Created new final grade for '\(subject.name)': \(value)")
         }
         
         do {
             try context.save()
-            print("Debug: Final grade saved successfully for '\(subject.name)' in \(schoolYear.displayName) \(semester.displayName)")
+            debugLog(" Final grade saved successfully for '\(subject.name)' in \(schoolYear.displayName) \(semester.displayName)")
             
             // Debug: Update widget after setting final grade
             updateWidgetAfterGradeChange(from: context)
         } catch {
-            print("Debug: Error saving final grade: \(error)")
+            debugLog(" Error saving final grade: \(error)")
         }
     }
     
@@ -476,9 +632,9 @@ class DataManager {
             
             do {
                 try context.save()
-                print("Debug: Removed final grade for '\(subject.name)' in \(schoolYear.displayName) \(semester.displayName)")
+                debugLog(" Removed final grade for '\(subject.name)' in \(schoolYear.displayName) \(semester.displayName)")
             } catch {
-                print("Debug: Error removing final grade: \(error)")
+                debugLog(" Error removing final grade: \(error)")
             }
         }
     }
@@ -532,7 +688,7 @@ class DataManager {
         
         // ✅ CloudKit sync happens automatically via SwiftData
         // No manual sync needed - saves battery and network usage
-        print("Debug: Widget updated, CloudKit will sync automatically in background")
+        debugLog(" Widget updated, CloudKit will sync automatically in background")
     }
     
     /// Load current school year selection from UserDefaults with grading system from SwiftData

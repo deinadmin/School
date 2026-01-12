@@ -36,14 +36,23 @@ struct ContentView: View {
     private let selectedSchoolYearKey = "selectedSchoolYear"
     private let selectedSemesterKey = "selectedSemester"
     
-    // Debug: Calculate overall average for speech bubble text (includes final grades)
+    // MARK: - Cached Statistics (Performance Optimization)
+    // Performance: Cache subject statistics to avoid N+1 queries on every render
+    @State private var subjectStatistics: [PersistentIdentifier: DataManager.SubjectStatistics] = [:]
+    
+    // Performance: Cached sorted subjects using pre-computed statistics
+    private var sortedSubjects: [Subject] {
+        DataManager.sortSubjectsByAverage(allSubjects, statistics: subjectStatistics, gradingSystem: selectedSchoolYear.gradingSystem)
+    }
+    
+    // Performance: Cached overall average from pre-computed statistics
     private var overallAverage: Double? {
-        return DataManager.calculateOverallAverageWithFinalGrades(
-            for: allSubjects,
-            schoolYear: selectedSchoolYear,
-            semester: selectedSemester,
-            from: modelContext
-        )
+        DataManager.calculateOverallAverage(from: subjectStatistics)
+    }
+    
+    // Performance: Check if any grades exist using cached statistics
+    private var hasGradesForSelectedPeriod: Bool {
+        DataManager.hasAnyGrades(in: subjectStatistics)
     }
     
     // Debug: Dynamic speech bubble text based on overall performance
@@ -51,47 +60,15 @@ struct ContentView: View {
         return GradingSystemHelpers.getPerformanceMessage(for: overallAverage, system: selectedSchoolYear.gradingSystem)
     }
     
-    // Debug: Subjects sorted by average grade (best grades first)
-    private var sortedSubjects: [Subject] {
-        return allSubjects.sorted { subject1, subject2 in
-            let average1 = DataManager.calculateWeightedAverage(for: subject1, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
-            let average2 = DataManager.calculateWeightedAverage(for: subject2, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
-            
-            // Debug: Handle subjects without grades (put them at the end)
-            switch (average1, average2) {
-            case (nil, nil):
-                // Debug: Both have no grades, sort alphabetically
-                return subject1.name < subject2.name
-            case (nil, _):
-                // Debug: subject1 has no grades, put it after subject2
-                return false
-            case (_, nil):
-                // Debug: subject2 has no grades, put subject1 before it
-                return true
-            case (let avg1?, let avg2?):
-                // Debug: Both have grades, sort by grade quality
-                switch selectedSchoolYear.gradingSystem {
-                case .traditional:
-                    // Debug: Traditional system (1-6): lower numbers are better
-                    return avg1 < avg2
-                case .points:
-                    // Debug: Points system (0-15): higher numbers are better
-                    return avg1 > avg2
-                }
-            }
-        }
-    }
-    
-    // Debug: Check if there are any grades for the selected period
-    private var hasGradesForSelectedPeriod: Bool {
-        for subject in allSubjects {
-            let grades = DataManager.getGrades(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
-            let hasFinalGrade = DataManager.hasFinalGrade(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
-            if !grades.isEmpty || hasFinalGrade {
-                return true
-            }
-        }
-        return false
+    /// Refresh cached subject statistics
+    /// Performance: Called once when view appears or year/semester changes, not on every render
+    private func refreshStatistics() {
+        subjectStatistics = DataManager.batchGetSubjectStatistics(
+            for: allSubjects,
+            schoolYear: selectedSchoolYear,
+            semester: selectedSemester,
+            from: modelContext
+        )
     }
     
     var body: some View {
@@ -142,6 +119,8 @@ struct ContentView: View {
         }
         .onAppear {
             loadSelectedPeriod()
+            refreshStatistics() // Performance: Batch fetch all statistics once on appear
+            updateWidget() // Debug: Update widget when view appears
         }
         // Debug: Handle deep linking to open the quick add view
         .onOpenURL { url in
@@ -149,14 +128,16 @@ struct ContentView: View {
         }
         .onChange(of: selectedSchoolYear) { _, newValue in
             saveSelectedSchoolYear(newValue)
+            refreshStatistics() // Performance: Refresh cached statistics when year changes
             updateWidget()
         }
         .onChange(of: selectedSemester) { _, newValue in
             saveSelectedSemester(newValue)
+            refreshStatistics() // Performance: Refresh cached statistics when semester changes
             updateWidget()
         }
-        .onAppear {
-            updateWidget()
+        .onChange(of: allSubjects) { _, _ in
+            refreshStatistics() // Performance: Refresh when subjects change (add/delete/modify)
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             updateWidget()
@@ -226,7 +207,8 @@ struct ContentView: View {
                         selectedSchoolYear: selectedSchoolYear,
                         selectedSemester: selectedSemester,
                         dismissSheet: dismiss,
-                        themeManager: themeManager
+                        themeManager: themeManager,
+                        cachedStatistics: subjectStatistics
                     )
                 }
                                 
@@ -326,10 +308,14 @@ struct ContentView: View {
     
     /// iPad sidebar subject row (polished liquid glass design)
     /// Debug: Clickable subject row with modern styling and selection state
+    /// Performance: Uses cached statistics instead of per-subject queries
     private func iPadSidebarSubjectRow(subject: Subject) -> some View {
         let isSelected = selectedSubject?.persistentModelID == subject.persistentModelID
-        let gradeCount = DataManager.getGrades(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext).count
-        let average = DataManager.calculateWeightedAverage(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+        // Performance: Use cached statistics instead of querying per subject
+        let stats = subjectStatistics[subject.persistentModelID]
+        let gradeCount = stats?.gradeCount ?? 0
+        let average = stats?.average
+        let hasFinalGrade = stats?.hasFinalGrade ?? false
         
         return Button(action: {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -367,7 +353,6 @@ struct ContentView: View {
                 if let avg = average {
                     HStack(spacing: 4) {
                         // Debug: Show star icon if final grade exists
-                        let hasFinalGrade = DataManager.hasFinalGrade(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
                         if hasFinalGrade {
                             Image(systemName: "star.fill")
                                 .font(.caption2)
@@ -517,7 +502,8 @@ struct ContentView: View {
                                 selectedSchoolYear: selectedSchoolYear,
                                 selectedSemester: selectedSemester,
                                 dismissSheet: dismiss,
-                                themeManager: themeManager
+                                themeManager: themeManager,
+                                cachedStatistics: subjectStatistics
                             )
                         }
                         
@@ -586,7 +572,8 @@ struct ContentView: View {
                                     dismissSheet: dismiss,
                                     themeManager: themeManager,
                                     onEdit: { subjectToEdit = $0 },
-                                    onDelete: { subjectToDelete = $0 }
+                                    onDelete: { subjectToDelete = $0 },
+                                    cachedStatistics: subjectStatistics
                                 )
                                 .id("gridView")
                                 .transition(.asymmetric(
@@ -606,7 +593,8 @@ struct ContentView: View {
                                                 selectedSchoolYear: selectedSchoolYear,
                                                 selectedSemester: selectedSemester,
                                                 onEdit: { subjectToEdit = $0 },
-                                                onDelete: { subjectToDelete = $0 }
+                                                onDelete: { subjectToDelete = $0 },
+                                                cachedStats: subjectStatistics[subject.persistentModelID]
                                             )
                                             .id("list-\(subject.persistentModelID)")
                                         }
@@ -722,6 +710,8 @@ struct ContentView: View {
                 loadSelectedPeriod()
                 // Debug: Restore grid view preference from UserDefaults
                 isGridView = storedIsGridView
+                // Debug: Update widget when view appears
+                updateWidget()
             }
             // Debug: Handle deep linking to open the quick add view
             .onOpenURL { url in
@@ -735,10 +725,6 @@ struct ContentView: View {
             .onChange(of: selectedSemester) { _, newValue in
                 saveSelectedSemester(newValue)
                 // Debug: Update widget when semester changes
-                updateWidget()
-            }
-            .onAppear {
-                // Debug: Update widget when view appears
                 updateWidget()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
@@ -757,27 +743,27 @@ struct ContentView: View {
     /// Handle deep link URL for quick add and other actions
     /// Debug: Centralized deep link handler used by both iPad and iPhone layouts
     private func handleDeepLink(_ url: URL) {
-        print("Debug: .onOpenURL called with URL: \(url)")
+        debugLog(" .onOpenURL called with URL: \(url)")
         if url.scheme == "schoolapp" && url.host == "quick-add" {
-            print("Debug: URL matched. Current showingQuickGradeAdd: \(self.showingQuickGradeAdd). Attempting to set to true.")
+            debugLog(" URL matched. Current showingQuickGradeAdd: \(self.showingQuickGradeAdd). Attempting to set to true.")
             
             // Debug: To avoid state conflicts, dismiss any currently presented sheet first
             if showingAddSubject || showingSettings {
-                print("Debug: Other sheet is showing. Dismissing it first.")
+                debugLog(" Other sheet is showing. Dismissing it first.")
                 showingAddSubject = false
                 showingSettings = false
                 
                 // Debug: Give the dismissal animation a moment to complete
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    print("Debug: Dispatch.asyncAfter - Setting showingQuickGradeAdd to true.")
+                    debugLog(" Dispatch.asyncAfter - Setting showingQuickGradeAdd to true.")
                     showingQuickGradeAdd = true
                 }
             } else {
-                print("Debug: No other sheet showing. Setting showingQuickGradeAdd to true directly.")
+                debugLog(" No other sheet showing. Setting showingQuickGradeAdd to true directly.")
                 showingQuickGradeAdd = true
             }
         } else {
-            print("Debug: URL did not match expected scheme/host.")
+            debugLog(" URL did not match expected scheme/host.")
         }
     }
     
@@ -786,7 +772,7 @@ struct ContentView: View {
     /// Refresh the selected school year to reflect data changes (e.g., after import)
     /// Debug: This ensures the UI updates immediately if the grading system for the current year was changed by an import.
     private func refreshCurrentSelection() {
-        print("Debug: Refreshing current school year selection to reflect potential data changes.")
+        debugLog(" Refreshing current school year selection to reflect potential data changes.")
         let refreshedSystem = SchoolYearGradingSystemManager.getGradingSystem(forSchoolYear: selectedSchoolYear.startYear, from: modelContext) ?? selectedSchoolYear.gradingSystem
         let refreshedSchoolYear = SchoolYear(startYear: selectedSchoolYear.startYear, gradingSystem: refreshedSystem)
         
@@ -802,21 +788,21 @@ struct ContentView: View {
             // Debug: Load the current grading system from SwiftData instead of using saved one
             let currentGradingSystem = SchoolYearGradingSystemManager.getGradingSystem(forSchoolYear: savedSchoolYear.startYear, from: modelContext) ?? .traditional
             selectedSchoolYear = SchoolYear(startYear: savedSchoolYear.startYear, gradingSystem: currentGradingSystem)
-            print("Debug: Loaded saved school year: \(selectedSchoolYear.displayName) with grading system: \(currentGradingSystem.displayName)")
+            debugLog(" Loaded saved school year: \(selectedSchoolYear.displayName) with grading system: \(currentGradingSystem.displayName)")
         } else {
             // Debug: No saved school year, use current year with grading system from SwiftData
             let current = SchoolYear.current
             let currentGradingSystem = SchoolYearGradingSystemManager.getGradingSystem(forSchoolYear: current.startYear, from: modelContext) ?? .traditional
             selectedSchoolYear = SchoolYear(startYear: current.startYear, gradingSystem: currentGradingSystem)
-            print("Debug: No saved school year found, using current: \(selectedSchoolYear.displayName) with grading system: \(currentGradingSystem.displayName)")
+            debugLog(" No saved school year found, using current: \(selectedSchoolYear.displayName) with grading system: \(currentGradingSystem.displayName)")
         }
         
         // Debug: Load saved semester using UserDefaults extension
         if let savedSemester = UserDefaults.standard.getStruct(forKey: selectedSemesterKey, as: Semester.self) {
             selectedSemester = savedSemester
-            print("Debug: Loaded saved semester: \(savedSemester.displayName)")
+            debugLog(" Loaded saved semester: \(savedSemester.displayName)")
         } else {
-            print("Debug: No saved semester found, using default: \(selectedSemester.displayName)")
+            debugLog(" No saved semester found, using default: \(selectedSemester.displayName)")
         }
     }
     
@@ -824,14 +810,14 @@ struct ContentView: View {
     /// Debug: Persists school year selection across app restarts
     private func saveSelectedSchoolYear(_ schoolYear: SchoolYear) {
         UserDefaults.standard.setStruct(schoolYear, forKey: selectedSchoolYearKey)
-        print("Debug: Saved school year selection: \(schoolYear.displayName)")
+        debugLog(" Saved school year selection: \(schoolYear.displayName)")
     }
     
     /// Save selected semester to UserDefaults
     /// Debug: Persists semester selection across app restarts
     private func saveSelectedSemester(_ semester: Semester) {
         UserDefaults.standard.setStruct(semester, forKey: selectedSemesterKey)
-        print("Debug: Saved semester selection: \(semester.displayName)")
+        debugLog(" Saved semester selection: \(semester.displayName)")
     }
     
     /// Update widget with current data
@@ -847,12 +833,15 @@ struct ContentView: View {
 }
 
 // Debug: Enhanced statistics card with unique design to distinguish from subject cards
+/// Performance: Accepts pre-computed statistics to avoid N+1 queries
 struct StatisticsCardView: View {
     let subjects: [Subject]
     let selectedSchoolYear: SchoolYear
     let selectedSemester: Semester
     let dismissSheet: DismissAction
     let themeManager: ThemeManager
+    // Performance: Pre-computed statistics passed from parent
+    var cachedStatistics: [PersistentIdentifier: DataManager.SubjectStatistics] = [:]
     @Environment(\.modelContext) private var modelContext
     // Debug: App Storage for rounding setting to trigger UI updates
     @AppStorage("roundPointAverages") private var roundPointAverages = true
@@ -861,8 +850,17 @@ struct StatisticsCardView: View {
     // Debug: State for minimizing/maximizing the schnitt section (for smooth animations)
     @State private var isMinimized = false
     
-    // Debug: Calculate overall statistics for the selected period (includes final grades)
+    // Performance: Use cached statistics when available, otherwise compute
     private var overallStatistics: (average: Double?, totalGrades: Int, subjectsWithGrades: Int) {
+        // Use cached statistics if available
+        if !cachedStatistics.isEmpty {
+            let totalGrades = cachedStatistics.values.reduce(0) { $0 + $1.gradeCount }
+            let subjectsWithGrades = cachedStatistics.values.filter { $0.gradeCount > 0 || $0.hasFinalGrade }.count
+            let average = DataManager.calculateOverallAverage(from: cachedStatistics)
+            return (average, totalGrades, subjectsWithGrades)
+        }
+        
+        // Fallback: compute on-demand (for backwards compatibility)
         var allGrades: [Grade] = []
         var subjectsWithGrades = 0
         
@@ -1032,24 +1030,35 @@ struct StatisticsCardView: View {
 }
 
 // Debug: Subject row view showing grades for selected school year/semester
+/// Performance: Accepts optional pre-computed statistics to avoid N+1 queries
 struct SubjectRowView: View {
     let subject: Subject
     let selectedSchoolYear: SchoolYear
     let selectedSemester: Semester
     let onEdit: (Subject) -> Void
     let onDelete: (Subject) -> Void
+    // Performance: Optional pre-computed statistics
+    var cachedStats: DataManager.SubjectStatistics? = nil
     @Environment(\.modelContext) private var modelContext
     // Debug: App Storage for rounding setting to trigger UI updates
     @AppStorage("roundPointAverages") private var roundPointAverages = true
     
-    // Debug: Get grades for this subject in the selected period
-    private var gradesForSelectedPeriod: [Grade] {
-        DataManager.getGrades(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+    // Performance: Use cached stats if available, otherwise compute on-demand
+    private var gradeCount: Int {
+        cachedStats?.gradeCount ?? DataManager.getGrades(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext).count
     }
     
-    // Debug: Calculate average for selected period
+    // Performance: Use cached average if available
     private var averageGrade: Double? {
-        DataManager.calculateWeightedAverage(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+        if let stats = cachedStats {
+            return stats.average
+        }
+        return DataManager.calculateWeightedAverage(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+    }
+    
+    // Performance: Use cached hasFinalGrade if available
+    private var hasFinalGrade: Bool {
+        cachedStats?.hasFinalGrade ?? DataManager.hasFinalGrade(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
     }
     
     var body: some View {
@@ -1074,14 +1083,12 @@ struct SubjectRowView: View {
             
             VStack(alignment: .trailing) {
                 // Debug: Show grade count for selected period
-                Text("\(gradesForSelectedPeriod.count) Noten")
+                Text("\(gradeCount) Noten")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
                 // Debug: Show final grade or calculated average
                 if let average = averageGrade {
-                    let hasFinalGrade = DataManager.hasFinalGrade(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
-                    
                     HStack(spacing: 2) {
                         if hasFinalGrade {
                             Image(systemName: "star.fill")
@@ -1138,6 +1145,7 @@ struct SubjectRowView: View {
 }
 
 // Debug: Grid view for subjects with minimal information
+/// Performance: Accepts pre-computed statistics to pass down to grid items
 struct SubjectGridView: View {
     let subjects: [Subject]
     let selectedSchoolYear: SchoolYear
@@ -1146,6 +1154,8 @@ struct SubjectGridView: View {
     let themeManager: ThemeManager
     let onEdit: (Subject) -> Void
     let onDelete: (Subject) -> Void
+    // Performance: Pre-computed statistics to pass to grid items
+    var cachedStatistics: [PersistentIdentifier: DataManager.SubjectStatistics] = [:]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     // Debug: App Storage for rounding setting to trigger UI updates
@@ -1170,7 +1180,8 @@ struct SubjectGridView: View {
                         selectedSchoolYear: selectedSchoolYear,
                         selectedSemester: selectedSemester,
                         onEdit: onEdit,
-                        onDelete: onDelete
+                        onDelete: onDelete,
+                        cachedStats: cachedStatistics[subject.persistentModelID]
                     )
                     .id("grid-\(subject.persistentModelID)")
                 }
@@ -1182,6 +1193,7 @@ struct SubjectGridView: View {
 }
 
 // Debug: Individual grid item for a subject
+/// Performance: Accepts optional pre-computed statistics to avoid N+1 queries
 struct SubjectGridItemView: View {
     let subject: Subject
     let selectedSchoolYear: SchoolYear
@@ -1189,16 +1201,21 @@ struct SubjectGridItemView: View {
     @Environment(\.modelContext) private var modelContext
     let onEdit: (Subject) -> Void
     let onDelete: (Subject) -> Void
+    // Performance: Optional pre-computed statistics
+    var cachedStats: DataManager.SubjectStatistics? = nil
     @AppStorage("roundPointAverages") private var roundPointAverages = true // Debug: Fix scope issue for rounding toggle updates
     
-    // Debug: Get grades for this subject in the selected period
-    private var gradesForSelectedPeriod: [Grade] {
-        DataManager.getGrades(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+    // Performance: Use cached stats if available, otherwise compute on-demand
+    private var gradeCount: Int {
+        cachedStats?.gradeCount ?? DataManager.getGrades(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext).count
     }
     
-    // Debug: Calculate average for selected period
+    // Performance: Use cached average if available
     private var averageGrade: Double? {
-        DataManager.calculateWeightedAverage(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+        if let stats = cachedStats {
+            return stats.average
+        }
+        return DataManager.calculateWeightedAverage(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
     }
     
     var body: some View {
@@ -1239,7 +1256,7 @@ struct SubjectGridItemView: View {
                 }
                 
                 // Debug: Grade count in secondary color
-                Text("\(gradesForSelectedPeriod.count) \(gradesForSelectedPeriod.count == 1 ? "Note" : "Noten")")
+                Text("\(gradeCount) \(gradeCount == 1 ? "Note" : "Noten")")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -1358,7 +1375,7 @@ struct SettingsView: View {
                     case .success(let data):
                         processJSONFileData(data)
                     case .failure(let error):
-                        print("Debug: Document picker error: \(error)")
+                        debugLog(" Document picker error: \(error)")
                         // Debug: Reset import state if document picker fails or is cancelled
                         isImporting = false
                     }
@@ -1463,11 +1480,11 @@ struct SettingsView: View {
                     selectedSemester: loadCurrentSemester(),
                     from: modelContext
                 )
-                print("Debug: Point average rounding setting changed to: \(newValue)")
+                debugLog(" Point average rounding setting changed to: \(newValue)")
             }
             .onChange(of: showMotivationalCharacter) { _, newValue in
                 UserDefaults.standard.set(newValue, forKey: "showMotivationalCharacter")
-                print("Debug: Motivational character setting changed to: \(newValue)")
+                debugLog(" Motivational character setting changed to: \(newValue)")
             }
             .padding()
             .background(
@@ -1636,7 +1653,7 @@ struct SettingsView: View {
             UserDefaults.standard.set(true, forKey: "showMotivationalCharacter")
         }
         
-        print("Debug: Loaded settings - Round points: \(roundPointAverages), Show character: \(showMotivationalCharacter)")
+        debugLog(" Loaded settings - Round points: \(roundPointAverages), Show character: \(showMotivationalCharacter)")
     }
     
     /// Load current school year selection from UserDefaults  
@@ -1676,12 +1693,12 @@ struct SettingsView: View {
         if let mailtoURL = URL(string: mailtoString) {
             if UIApplication.shared.canOpenURL(mailtoURL) {
                 UIApplication.shared.open(mailtoURL)
-                print("Debug: Opened mail app with support email")
+                debugLog(" Opened mail app with support email")
             } else {
-                print("Debug: Mail app not available")
+                debugLog(" Mail app not available")
             }
         } else {
-            print("Debug: Failed to create mailto URL")
+            debugLog(" Failed to create mailto URL")
         }
     }
     
@@ -1691,12 +1708,12 @@ struct SettingsView: View {
     /// Debug: Exports subjects, grades, grade types with school year range in filename
     private func exportData() {
         isExporting = true
-        print("Debug: Starting export...")
+        debugLog(" Starting export...")
         
         // Debug: Add small delay to show loading state
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             let exportData = DataExporter.exportAllData(from: modelContext)
-            print("Debug: Found \(exportData.subjects.count) subjects")
+            debugLog(" Found \(exportData.subjects.count) subjects")
             
             do {
                 let encoder = JSONEncoder()
@@ -1705,7 +1722,7 @@ struct SettingsView: View {
                 
                 let jsonData = try encoder.encode(exportData)
                 guard let jsonString = String(data: jsonData, encoding: .utf8), !jsonString.isEmpty else {
-                    print("Debug: Failed to convert JSON data to string")
+                    debugLog(" Failed to convert JSON data to string")
                     DispatchQueue.main.async {
                         isExporting = false
                         showingExportError = true
@@ -1714,8 +1731,8 @@ struct SettingsView: View {
                 }
                 
                 let fileName = generateExportFileName(from: exportData)
-                print("Debug: Generated filename: \(fileName)")
-                print("Debug: JSON content length: \(jsonString.count) characters")
+                debugLog(" Generated filename: \(fileName)")
+                debugLog(" JSON content length: \(jsonString.count) characters")
                 
                 // Debug: Create temporary file with proper name and content
                 if let fileURL = createTemporaryFile(content: jsonString, fileName: fileName) {
@@ -1723,18 +1740,18 @@ struct SettingsView: View {
                         exportFileURL = fileURL
                         isExporting = false
                         showingExportSheet = true
-                        print("Debug: Export successful, showing share sheet")
+                        debugLog(" Export successful, showing share sheet")
                         ToastManager.shared.info("Backup bereit zum Teilen", icon: "square.and.arrow.up.fill")
                     }
                 } else {
-                    print("Debug: Failed to create temporary file")
+                    debugLog(" Failed to create temporary file")
                     DispatchQueue.main.async {
                         isExporting = false
                         showingExportError = true
                     }
                 }
             } catch {
-                print("Debug: Export JSON encoding error: \(error)")
+                debugLog(" Export JSON encoding error: \(error)")
                 DispatchQueue.main.async {
                     isExporting = false
                     showingExportError = true
@@ -1747,10 +1764,10 @@ struct SettingsView: View {
     /// Debug: Creates a temporary .json file with proper content and filename
     private func createTemporaryFile(content: String, fileName: String) -> URL? {
         let temporaryDirectory = FileManager.default.temporaryDirectory
-        print("Debug: Temporary directory: \(temporaryDirectory)")
+        debugLog(" Temporary directory: \(temporaryDirectory)")
         
         let fileURL = temporaryDirectory.appendingPathComponent(fileName)
-        print("Debug: Attempting to create file at: \(fileURL)")
+        debugLog(" Attempting to create file at: \(fileURL)")
         
         do {
             // Debug: Ensure directory exists
@@ -1763,26 +1780,26 @@ struct SettingsView: View {
             let fileExists = FileManager.default.fileExists(atPath: fileURL.path)
             let fileSize = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? NSNumber)?.intValue ?? 0
             
-            print("Debug: File created successfully at: \(fileURL)")
-            print("Debug: File exists: \(fileExists), size: \(fileSize) bytes")
+            debugLog(" File created successfully at: \(fileURL)")
+            debugLog(" File exists: \(fileExists), size: \(fileSize) bytes")
             
             return fileExists && fileSize > 0 ? fileURL : nil
         } catch {
-            print("Debug: Error creating temporary file: \(error)")
+            debugLog(" Error creating temporary file: \(error)")
             
             // Debug: Try fallback with simpler name
             let fallbackURL = temporaryDirectory.appendingPathComponent("School_Backup.json")
-            print("Debug: Trying fallback file: \(fallbackURL)")
+            debugLog(" Trying fallback file: \(fallbackURL)")
             
             do {
                 try content.write(to: fallbackURL, atomically: true, encoding: .utf8)
                 let fileExists = FileManager.default.fileExists(atPath: fallbackURL.path)
                 let fileSize = (try? FileManager.default.attributesOfItem(atPath: fallbackURL.path)[.size] as? NSNumber)?.intValue ?? 0
                 
-                print("Debug: Fallback file created: exists=\(fileExists), size=\(fileSize)")
+                debugLog(" Fallback file created: exists=\(fileExists), size=\(fileSize)")
                 return fileExists && fileSize > 0 ? fallbackURL : nil
             } catch {
-                print("Debug: Fallback file creation also failed: \(error)")
+                debugLog(" Fallback file creation also failed: \(error)")
                 return nil
             }
         }
@@ -1793,9 +1810,9 @@ struct SettingsView: View {
     private func cleanupTemporaryFile(_ url: URL) {
         do {
             try FileManager.default.removeItem(at: url)
-            print("Debug: Cleaned up temporary file: \(url)")
+            debugLog(" Cleaned up temporary file: \(url)")
         } catch {
-            print("Debug: Error cleaning up temporary file: \(error)")
+            debugLog(" Error cleaning up temporary file: \(error)")
         }
         exportFileURL = nil
     }
@@ -1831,22 +1848,22 @@ struct SettingsView: View {
     /// Debug: Processes file content and triggers import confirmation
     private func processJSONFileData(_ data: Data) {
         isImporting = true
-        print("Debug: Processing JSON file data, size: \(data.count) bytes")
+        debugLog(" Processing JSON file data, size: \(data.count) bytes")
         
         // Debug: Add small delay to show loading state
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             if let jsonString = String(data: data, encoding: .utf8) {
-                print("Debug: JSON string length: \(jsonString.count) characters")
-                print("Debug: JSON preview: \(String(jsonString.prefix(200)))...")
+                debugLog(" JSON string length: \(jsonString.count) characters")
+                debugLog(" JSON preview: \(String(jsonString.prefix(200)))...")
                 
                 DispatchQueue.main.async {
                     importedData = jsonString
                     isImporting = false
                     showingImportAlert = true
-                    print("Debug: Import confirmation alert will be shown")
+                    debugLog(" Import confirmation alert will be shown")
                 }
             } else {
-                print("Debug: Failed to convert data to UTF-8 string")
+                debugLog(" Failed to convert data to UTF-8 string")
                 DispatchQueue.main.async {
                     isImporting = false
                     showingImportError = true
@@ -1860,10 +1877,10 @@ struct SettingsView: View {
     /// NOTE: ModelContext is NOT thread-safe - all SwiftData operations MUST happen on main thread!
     private func importData(_ jsonString: String) {
         isImporting = true
-        print("Debug: Starting data import...")
+        debugLog(" Starting data import...")
         
         guard let jsonData = jsonString.data(using: .utf8) else {
-            print("Debug: Invalid JSON string")
+            debugLog(" Invalid JSON string")
             isImporting = false
             showingImportError = true
             return
@@ -1880,16 +1897,16 @@ struct SettingsView: View {
                 decoder.dateDecodingStrategy = .secondsSince1970
                 decodedData = try decoder.decode(ExportedData.self, from: jsonData)
             } catch {
-                print("Debug: Primary decoding failed: \(error)")
+                debugLog(" Primary decoding failed: \(error)")
                 
                 // Try fallback decoder with iso8601 date strategy
                 do {
-                    print("Debug: Trying fallback decoding with iso8601 date strategy...")
+                    debugLog(" Trying fallback decoding with iso8601 date strategy...")
                     let fallbackDecoder = JSONDecoder()
                     fallbackDecoder.dateDecodingStrategy = .iso8601
                     decodedData = try fallbackDecoder.decode(ExportedData.self, from: jsonData)
                 } catch {
-                    print("Debug: Fallback decoding also failed: \(error)")
+                    debugLog(" Fallback decoding also failed: \(error)")
                     decodingError = error
                 }
             }
@@ -1904,7 +1921,7 @@ struct SettingsView: View {
                     self.setGradingSystemsInSwiftData(importData.schoolYearGradingSystems)
                     
                     self.isImporting = false
-                    print("Debug: Data imported successfully, original grading systems restored")
+                    debugLog(" Data imported successfully, original grading systems restored")
                     
                     // Debug: Show success toast with grade display value
                     ToastManager.shared.success("Daten importiert", icon: "arrow.down.circle.fill", iconColor: self.themeManager.accentColor)
@@ -1915,7 +1932,7 @@ struct SettingsView: View {
                     // and give user clear feedback that import completed
                     self.dismiss()
                 } else {
-                    print("Debug: Import failed with error: \(decodingError?.localizedDescription ?? "Unknown error")")
+                    debugLog(" Import failed with error: \(decodingError?.localizedDescription ?? "Unknown error")")
                     self.isImporting = false
                     self.showingImportError = true
                     ToastManager.shared.error("Import fehlgeschlagen")
@@ -1927,27 +1944,27 @@ struct SettingsView: View {
     /// Set grading systems in SwiftData for all school years
     /// Debug: Updates SwiftData with grading system mappings from import data
     private func setGradingSystemsInSwiftData(_ gradingSystems: [String: String]) {
-        print("Debug: Setting grading systems in SwiftData for \(gradingSystems.count) school years")
-        print("Debug: Grading systems to set: \(gradingSystems)")
+        debugLog(" Setting grading systems in SwiftData for \(gradingSystems.count) school years")
+        debugLog(" Grading systems to set: \(gradingSystems)")
         
         var successCount = 0
         for (schoolYearString, gradingSystemString) in gradingSystems {
             guard let schoolYearStart = Int(schoolYearString),
                   let gradingSystem = GradingSystem(rawValue: gradingSystemString) else {
-                print("Debug: Invalid school year or grading system: \(schoolYearString) -> \(gradingSystemString)")
+                debugLog(" Invalid school year or grading system: \(schoolYearString) -> \(gradingSystemString)")
                 continue
             }
             
             SchoolYearGradingSystemManager.setGradingSystem(gradingSystem, forSchoolYear: schoolYearStart, in: modelContext)
             successCount += 1
-            print("Debug: ✅ Set grading system \(gradingSystem.displayName) for school year \(schoolYearStart)/\(schoolYearStart + 1)")
+            debugLog(" ✅ Set grading system \(gradingSystem.displayName) for school year \(schoolYearStart)/\(schoolYearStart + 1)")
         }
         
-        print("Debug: Successfully set grading systems for \(successCount)/\(gradingSystems.count) school years")
+        debugLog(" Successfully set grading systems for \(successCount)/\(gradingSystems.count) school years")
         
         // Debug: Also handle school years that might not have explicit grading system info
         if gradingSystems.isEmpty {
-            print("Debug: No grading systems in backup, keeping current SwiftData settings")
+            debugLog(" No grading systems in backup, keeping current SwiftData settings")
         }
     }
 }
@@ -1981,7 +1998,7 @@ struct ExportedData: Codable {
         schoolYearGradingSystems = try container.decodeIfPresent([String: String].self, forKey: .schoolYearGradingSystems) ?? [:]
         
         if schoolYearGradingSystems.isEmpty {
-            print("Debug: No grading systems found in backup, assuming traditional system for all years")
+            debugLog(" No grading systems found in backup, assuming traditional system for all years")
         }
     }
     
@@ -2053,7 +2070,7 @@ class DataExporter {
                 if schoolYearGradingSystems[String(year)] == nil {
                     let gradingSystem = SchoolYearGradingSystemManager.getGradingSystem(forSchoolYear: year, from: context) ?? .traditional
                     schoolYearGradingSystems[String(year)] = gradingSystem.rawValue
-                    print("Debug: Exporting grading system for out-of-range year \(year) with grades: \(gradingSystem.rawValue)")
+                    debugLog(" Exporting grading system for out-of-range year \(year) with grades: \(gradingSystem.rawValue)")
                 }
             }
             for finalGrade in subject.finalGrades ?? [] {
@@ -2061,7 +2078,7 @@ class DataExporter {
                 if schoolYearGradingSystems[String(year)] == nil {
                     let gradingSystem = SchoolYearGradingSystemManager.getGradingSystem(forSchoolYear: year, from: context) ?? .traditional
                     schoolYearGradingSystems[String(year)] = gradingSystem.rawValue
-                    print("Debug: Exporting grading system for out-of-range year \(year) with final grades: \(gradingSystem.rawValue)")
+                    debugLog(" Exporting grading system for out-of-range year \(year) with final grades: \(gradingSystem.rawValue)")
                 }
             }
         }
@@ -2097,7 +2114,7 @@ class DataExporter {
             )
         }
         
-        print("Debug: Exported \(schoolYearGradingSystems.count) grading systems: \(schoolYearGradingSystems)")
+        debugLog(" Exported \(schoolYearGradingSystems.count) grading systems: \(schoolYearGradingSystems)")
         return ExportedData(subjects: exportedSubjects, schoolYearGradingSystems: schoolYearGradingSystems)
     }
 }
@@ -2118,8 +2135,8 @@ class DataImporter {
         
         // Debug: Import subjects and recreate relationships (grading systems are handled by importWithConversion)
         for (index, exportedSubject) in data.subjects.enumerated() {
-            print("Debug: Importing subject \(index + 1)/\(data.subjects.count): '\(exportedSubject.name)'")
-            print("Debug: Subject has \(exportedSubject.gradeTypes.count) grade types and \(exportedSubject.grades.count) grades")
+            debugLog(" Importing subject \(index + 1)/\(data.subjects.count): '\(exportedSubject.name)'")
+            debugLog(" Subject has \(exportedSubject.gradeTypes.count) grade types and \(exportedSubject.grades.count) grades")
             
             let subject = Subject(
                 name: exportedSubject.name,
@@ -2143,7 +2160,7 @@ class DataImporter {
             
             // Debug: Ensure subject has at least one grade type (create default if none exist)
             if gradeTypeMap.isEmpty {
-                print("Debug: No grade types found for subject '\(exportedSubject.name)', creating default types")
+                debugLog(" No grade types found for subject '\(exportedSubject.name)', creating default types")
                 
                 let defaultSchriftlich = GradeType(
                     name: "Schriftlich",
@@ -2171,7 +2188,7 @@ class DataImporter {
                 
                 // Debug: Ensure we have a valid grade type
                 guard let validGradeType = gradeType ?? gradeTypeMap.values.first else {
-                    print("Debug: Warning - No grade type found for grade with type '\(exportedGrade.gradeTypeName)', skipping grade")
+                    debugLog(" Warning - No grade type found for grade with type '\(exportedGrade.gradeTypeName)', skipping grade")
                     continue
                 }
                 
@@ -2202,9 +2219,9 @@ class DataImporter {
         // Debug: Save all changes
         do {
             try context.save()
-            print("Debug: Successfully saved all imported data")
+            debugLog(" Successfully saved all imported data")
         } catch {
-            print("Debug: Error saving imported data: \(error)")
+            debugLog(" Error saving imported data: \(error)")
         }
     }
     
@@ -2222,7 +2239,7 @@ class DataImporter {
             for grade in grades {
                 context.delete(grade)
             }
-            print("Debug: Deleted \(grades.count) grades")
+            debugLog(" Deleted \(grades.count) grades")
             
             // 2. Delete all final grades (they reference subjects)
             let finalGradeDescriptor = FetchDescriptor<FinalGrade>()
@@ -2230,7 +2247,7 @@ class DataImporter {
             for finalGrade in finalGrades {
                 context.delete(finalGrade)
             }
-            print("Debug: Deleted \(finalGrades.count) final grades")
+            debugLog(" Deleted \(finalGrades.count) final grades")
             
             // 3. Delete all grade types (they reference subjects)
             let gradeTypeDescriptor = FetchDescriptor<GradeType>()
@@ -2238,7 +2255,7 @@ class DataImporter {
             for gradeType in gradeTypes {
                 context.delete(gradeType)
             }
-            print("Debug: Deleted \(gradeTypes.count) grade types")
+            debugLog(" Deleted \(gradeTypes.count) grade types")
             
             // 4. Save intermediate changes to commit deletions of related entities
             try context.save()
@@ -2250,13 +2267,13 @@ class DataImporter {
             for subject in subjects {
                 context.delete(subject)
             }
-            print("Debug: Deleted \(subjects.count) subjects")
+            debugLog(" Deleted \(subjects.count) subjects")
             
             // 6. Final save to commit subject deletions
             try context.save()
-            print("Debug: Cleared all existing data successfully")
+            debugLog(" Cleared all existing data successfully")
         } catch {
-            print("Debug: Error clearing data: \(error)")
+            debugLog(" Error clearing data: \(error)")
         }
     }
 }
@@ -2291,9 +2308,9 @@ struct ShareSheet: UIViewControllerRepresentable {
         ]
         
         controller.completionWithItemsHandler = { activityType, completed, _, error in
-            print("Debug: Share completed - Type: \(activityType?.rawValue ?? "unknown"), Success: \(completed)")
+            debugLog(" Share completed - Type: \(activityType?.rawValue ?? "unknown"), Success: \(completed)")
             if let error = error {
-                print("Debug: Share error: \(error)")
+                debugLog(" Share error: \(error)")
             }
             onDismiss?()
         }
@@ -2345,10 +2362,10 @@ struct DocumentPicker: UIViewControllerRepresentable {
             
             do {
                 let data = try Data(contentsOf: url)
-                print("Debug: Successfully read \(data.count) bytes from \(url.lastPathComponent)")
+                debugLog(" Successfully read \(data.count) bytes from \(url.lastPathComponent)")
                 parent.onDocumentPicked(.success(data))
             } catch {
-                print("Debug: Failed to read file data: \(error)")
+                debugLog(" Failed to read file data: \(error)")
                 parent.onDocumentPicked(.failure(DocumentPickerError.invalidFile))
             }
         }
@@ -2377,9 +2394,9 @@ extension View {
             if !items.isEmpty {
                 ShareSheet(items: items, onDismiss: onDismiss)
                     .onAppear {
-                        print("Debug: ShareSheet presented with \(items.count) items")
+                        debugLog(" ShareSheet presented with \(items.count) items")
                         for (index, item) in items.enumerated() {
-                            print("Debug: Item \(index): \(item)")
+                            debugLog(" Item \(index): \(item)")
                         }
                     }
             } else {

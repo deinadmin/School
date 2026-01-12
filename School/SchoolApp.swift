@@ -42,12 +42,12 @@ struct SchoolApp: App {
       )
       
       self.container = modelContainer
-      print("Debug: ModelContainer created successfully with CloudKit sync enabled")
+      debugLog(" ModelContainer created successfully with CloudKit sync enabled")
       
       // Debug: Perform migration using the same container
       self.performMigrationIfNeeded(with: modelContainer)
     } catch {
-      print("Debug: Failed to create ModelContainer with CloudKit: \(error)")
+      debugLog(" Failed to create ModelContainer with CloudKit: \(error)")
       
       // Debug: Fallback to local-only storage if CloudKit fails
       let fallbackConfiguration = ModelConfiguration(
@@ -62,7 +62,7 @@ struct SchoolApp: App {
           configurations: [fallbackConfiguration]
         )
         self.container = fallbackContainer
-        print("Debug: Created fallback ModelContainer without CloudKit")
+        debugLog(" Created fallback ModelContainer without CloudKit")
         
         // Debug: Perform migration using fallback container
         self.performMigrationIfNeeded(with: fallbackContainer)
@@ -88,7 +88,7 @@ struct SchoolApp: App {
     // Debug: Check if migration has already been performed
     let migrationKey = "gradingSystemMigrationCompleted"
     guard !UserDefaults.standard.bool(forKey: migrationKey) else {
-      print("Debug: Grading system migration already completed, skipping")
+      debugLog(" Grading system migration already completed, skipping")
       return
     }
     
@@ -99,6 +99,6 @@ struct SchoolApp: App {
     
     // Debug: Mark migration as completed
     UserDefaults.standard.set(true, forKey: migrationKey)
-    print("Debug: Grading system migration completed and marked in UserDefaults")
+    debugLog(" Grading system migration completed and marked in UserDefaults")
   }
 }

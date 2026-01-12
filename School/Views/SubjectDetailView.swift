@@ -13,7 +13,6 @@ struct SubjectDetailView: View {
     let selectedSchoolYear: SchoolYear
     let selectedSemester: Semester
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     
     @State private var showingAddGrade = false
     @State private var showingAddGradeType = false
@@ -59,131 +58,112 @@ struct SubjectDetailView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    
-                    // Debug: Subject header with icon and info
-                    subjectHeaderView
-                    
-                    // Debug: Statistics section
-                    statisticsView
-                    
-                    // Debug: Final grade section
-                    finalGradeSection
-                    
-                    // Debug: Grades section with all grade types
-                    gradesSection
-                }
-                .padding(.horizontal)
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true) // Debug: Hide default back button to use custom colored one
-            .accentColor(Color(hex: subject.colorHex)) // Debug: Use subject color as accent color for entire view and all sheets
-            .interactiveDismissDisabled(false)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        dismiss()
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "chevron.left")
-                                .font(.title3)
-                                .fontWeight(.medium)
-                            Text("Fächer")
-                                .font(.body)
-                        }
-                        .foregroundColor(Color(hex: subject.colorHex))
-                    }
-                }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
                 
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        showingEditSubject = true
-                    }) {
-                        Image(systemName: "pencil")
-                            .font(.body)
-                            .fontWeight(.medium)
-                            .foregroundColor(Color(hex: subject.colorHex))
-                    }
+                // Debug: Subject header with icon and info
+                subjectHeaderView
+                
+                // Debug: Statistics section
+                statisticsView
+                
+                // Debug: Final grade section
+                finalGradeSection
+                
+                // Debug: Grades section with all grade types
+                gradesSection
+            }
+            .padding(.horizontal)
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .accentColor(Color(hex: subject.colorHex)) // Debug: Use subject color as accent color for entire view and all sheets
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: {
+                    showingEditSubject = true
+                }) {
+                    Image(systemName: "pencil")
+                        .font(.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color(hex: subject.colorHex))
                 }
             }
-            .sheet(isPresented: $showingAddGrade) {
-                print("Debug: SubjectDetailView - General sheet opening without preselection")
-                return AddGradeView(
-                    subject: subject, 
-                    schoolYear: selectedSchoolYear, 
-                    semester: selectedSemester,
-                    preselectedGradeType: nil as GradeType?
-                )
+        }
+        .sheet(isPresented: $showingAddGrade) {
+            debugLog(" SubjectDetailView - General sheet opening without preselection")
+            return AddGradeView(
+                subject: subject, 
+                schoolYear: selectedSchoolYear, 
+                semester: selectedSemester,
+                preselectedGradeType: nil as GradeType?
+            )
+        }
+        .sheet(item: $gradeTypeForNewGrade) { gradeType in
+            debugLog(" SubjectDetailView - Item-based sheet opening with grade type: \(gradeType.name)")
+            return AddGradeView(
+                subject: subject, 
+                schoolYear: selectedSchoolYear, 
+                semester: selectedSemester,
+                preselectedGradeType: gradeType as GradeType?
+            )
+        }
+        .sheet(isPresented: $showingAddGradeType) {
+            AddGradeTypeView(onSave: { newGradeType in
+                GradeTypeManager.addGradeType(name: newGradeType.name, weight: newGradeType.weight, icon: newGradeType.icon, for: subject, in: modelContext)
+                gradeTypesUpdateTrigger = UUID() // Debug: Trigger view refresh
+            }, subjectColorHex: subject.colorHex)
+        }
+        .sheet(item: $gradeTypeToEdit) { gradeType in
+            EditGradeTypeView(gradeType: gradeType) { updatedGradeType in
+                debugLog(" Saving updated grade type: \(updatedGradeType.name)")
+                GradeTypeManager.updateGradeType(gradeType, name: updatedGradeType.name, weight: updatedGradeType.weight, icon: updatedGradeType.icon, in: modelContext)
+                gradeTypeToEdit = nil
+                gradeTypesUpdateTrigger = UUID() // Debug: Trigger view refresh
             }
-            .sheet(item: $gradeTypeForNewGrade) { gradeType in
-                print("Debug: SubjectDetailView - Item-based sheet opening with grade type: \(gradeType.name)")
-                return AddGradeView(
-                    subject: subject, 
-                    schoolYear: selectedSchoolYear, 
-                    semester: selectedSemester,
-                    preselectedGradeType: gradeType as GradeType?
-                )
+        }
+        .sheet(isPresented: $showingFixWeights) {
+            FixWeightsView(gradeTypes: allAvailableGradeTypes, subject: subject) {
+                gradeTypesUpdateTrigger = UUID() // Debug: Trigger view refresh after weights are updated
             }
-            .sheet(isPresented: $showingAddGradeType) {
-                AddGradeTypeView(onSave: { newGradeType in
-                    GradeTypeManager.addGradeType(name: newGradeType.name, weight: newGradeType.weight, icon: newGradeType.icon, for: subject, in: modelContext)
-                    gradeTypesUpdateTrigger = UUID() // Debug: Trigger view refresh
-                }, subjectColorHex: subject.colorHex)
-            }
-            .sheet(item: $gradeTypeToEdit) { gradeType in
-                EditGradeTypeView(gradeType: gradeType) { updatedGradeType in
-                    print("Debug: Saving updated grade type: \(updatedGradeType.name)")
-                    GradeTypeManager.updateGradeType(gradeType, name: updatedGradeType.name, weight: updatedGradeType.weight, icon: updatedGradeType.icon, in: modelContext)
-                    gradeTypeToEdit = nil
-                    gradeTypesUpdateTrigger = UUID() // Debug: Trigger view refresh
-                }
-            }
-            .sheet(isPresented: $showingFixWeights) {
-                FixWeightsView(gradeTypes: allAvailableGradeTypes, subject: subject) {
-                    gradeTypesUpdateTrigger = UUID() // Debug: Trigger view refresh after weights are updated
-                }
-            }
-            .alert("Notentyp löschen?", isPresented: $showingDeleteGradeTypeAlert) {
-                Button("Löschen", role: .destructive) {
-                    if let gradeTypeToDelete = gradeTypeToDelete {
-                        deleteGradeType(gradeTypeToDelete)
-                    }
-                }
-                Button("Abbrechen", role: .cancel) {
-                    gradeTypeToDelete = nil
-                }
-            } message: {
+        }
+        .alert("Notentyp löschen?", isPresented: $showingDeleteGradeTypeAlert) {
+            Button("Löschen", role: .destructive) {
                 if let gradeTypeToDelete = gradeTypeToDelete {
-                    let gradeCount = DataManager.getGrades(for: subject, gradeType: gradeTypeToDelete, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext).count
-                    Text("Dies wird den Notentyp '\(gradeTypeToDelete.name)' und alle \(gradeCount) zugehörigen Noten unwiderruflich löschen.")
+                    deleteGradeType(gradeTypeToDelete)
                 }
             }
-            .sheet(isPresented: $showingFinalGradeSheet) {
-                SetFinalGradeView(
-                    subject: subject,
-                    schoolYear: selectedSchoolYear,
-                    semester: selectedSemester,
-                    currentFinalGrade: finalGradeValue
-                )
+            Button("Abbrechen", role: .cancel) {
+                gradeTypeToDelete = nil
             }
-            .alert("Endnote entfernen?", isPresented: $showingRemoveFinalGradeAlert) {
-                Button("Entfernen", role: .destructive) {
-                    DataManager.removeFinalGrade(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
-                    ToastManager.shared.success("Endnote entfernt", icon: "star.slash.fill", iconColor: Color(hex: subject.colorHex))
-                }
-                Button("Abbrechen", role: .cancel) { }
-            } message: {
-                Text("Die Endnote wird entfernt und der berechnete Durchschnitt wird wieder verwendet.")
+        } message: {
+            if let gradeTypeToDelete = gradeTypeToDelete {
+                let gradeCount = DataManager.getGrades(for: subject, gradeType: gradeTypeToDelete, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext).count
+                Text("Dies wird den Notentyp '\(gradeTypeToDelete.name)' und alle \(gradeCount) zugehörigen Noten unwiderruflich löschen.")
             }
-            .sheet(isPresented: $showingEditSubject) {
-                EditSubjectView(subject: subject)
-                #if os(iOS)
-                    .presentationDetents(UIDevice.current.userInterfaceIdiom == .phone ? [.medium] : [.large])
-                    .presentationDragIndicator(UIDevice.current.userInterfaceIdiom == .phone ? .visible : .hidden)
-                #endif
+        }
+        .sheet(isPresented: $showingFinalGradeSheet) {
+            SetFinalGradeView(
+                subject: subject,
+                schoolYear: selectedSchoolYear,
+                semester: selectedSemester,
+                currentFinalGrade: finalGradeValue
+            )
+        }
+        .alert("Endnote entfernen?", isPresented: $showingRemoveFinalGradeAlert) {
+            Button("Entfernen", role: .destructive) {
+                DataManager.removeFinalGrade(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+                ToastManager.shared.success("Endnote entfernt", icon: "star.slash.fill", iconColor: Color(hex: subject.colorHex))
             }
+            Button("Abbrechen", role: .cancel) { }
+        } message: {
+            Text("Die Endnote wird entfernt und der berechnete Durchschnitt wird wieder verwendet.")
+        }
+        .sheet(isPresented: $showingEditSubject) {
+            EditSubjectView(subject: subject)
+            #if os(iOS)
+                .presentationDetents(UIDevice.current.userInterfaceIdiom == .phone ? [.medium] : [.large])
+                .presentationDragIndicator(UIDevice.current.userInterfaceIdiom == .phone ? .visible : .hidden)
+            #endif
         }
         .tint(Color(hex: subject.colorHex)) // Debug: Apply subject color to navigation elements (back button, toolbar buttons)
     }
@@ -341,7 +321,7 @@ struct SubjectDetailView: View {
                 // Debug: Three dots menu for grade type management (now works for all types)
                 Menu {
                     Button(action: {
-                        print("Debug: Setting grade type to edit: \(gradeType.name)")
+                        debugLog(" Setting grade type to edit: \(gradeType.name)")
                         gradeTypeToEdit = gradeType
                     }) {
                         Label("Bearbeiten", systemImage: "pencil")
@@ -366,10 +346,10 @@ struct SubjectDetailView: View {
                 .buttonStyle(.plain)
                 // Debug: Quick add grade button for this type
                 Button(action: {
-                    print("Debug: SubjectDetailView - Button clicked for grade type: \(gradeType.name)")
-                    print("Debug: SubjectDetailView - Setting gradeTypeForNewGrade to: \(gradeType.persistentModelID)")
+                    debugLog(" SubjectDetailView - Button clicked for grade type: \(gradeType.name)")
+                    debugLog(" SubjectDetailView - Setting gradeTypeForNewGrade to: \(gradeType.persistentModelID)")
                     gradeTypeForNewGrade = gradeType
-                    print("Debug: SubjectDetailView - gradeTypeForNewGrade is now: \(gradeTypeForNewGrade?.name ?? "nil")")
+                    debugLog(" SubjectDetailView - gradeTypeForNewGrade is now: \(gradeTypeForNewGrade?.name ?? "nil")")
                 }) {
                     Image(systemName: "plus.circle.fill")
                         .foregroundColor(Color(hex: subject.colorHex))
@@ -603,7 +583,7 @@ struct SubjectDetailView: View {
         
         gradeTypeToDelete = nil
         gradeTypesUpdateTrigger = UUID() // Debug: Trigger view refresh
-        print("Debug: Deleted grade type '\(gradeTypeName)' and all its grades")
+        debugLog(" Deleted grade type '\(gradeTypeName)' and all its grades")
         
         // Debug: Show success toast
         ToastManager.shared.success("„\(gradeTypeName)“ gelöscht", icon: "trash.fill", iconColor: Color(hex: subject.colorHex))
@@ -1104,40 +1084,31 @@ struct SetFinalGradeView: View {
     
     // Debug: Individual grade button with animations (same as used in AddGradeView)
     private func gradeButton(for gradeItem: (value: Double, display: String, color: Color)) -> some View {
-        Button(action: {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                selectedGradeValue = gradeItem.value
-            }
+        let isSelected = selectedGradeValue == gradeItem.value
+        
+        return Button(action: {
+            selectedGradeValue = gradeItem.value
         }) {
             Text(gradeItem.display)
                 .font(.title3)
                 .fontWeight(.semibold)
-                .foregroundColor(selectedGradeValue == gradeItem.value ? .white : gradeItem.color)
+                .foregroundColor(isSelected ? .white : gradeItem.color)
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
-                .background(
-                    Group {
-                        if selectedGradeValue == gradeItem.value {
-                            gradeItem.color
-                        } else {
-                            gradeItem.color.opacity(0.12)
-                        }
-                    }
-                )
+                .background(isSelected ? gradeItem.color : gradeItem.color.opacity(0.12))
                 .cornerRadius(12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(gradeItem.color.opacity(selectedGradeValue == gradeItem.value ? 0 : 0.3), lineWidth: 1)
+                        .stroke(gradeItem.color.opacity(isSelected ? 0 : 0.3), lineWidth: 1)
                 )
-                .scaleEffect(selectedGradeValue == gradeItem.value ? 1.05 : 1.0)
+                .scaleEffect(isSelected ? 1.05 : 1.0)
                 .shadow(
-                    color: selectedGradeValue == gradeItem.value ? gradeItem.color.opacity(0.3) : .clear,
-                    radius: selectedGradeValue == gradeItem.value ? 8 : 0,
+                    color: isSelected ? gradeItem.color.opacity(0.3) : .clear,
+                    radius: isSelected ? 8 : 0,
                     x: 0, y: 4
                 )
         }
         .buttonStyle(.plain)
-        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: selectedGradeValue)
         .sensoryFeedback(.increase, trigger: selectedGradeValue)
     }
     

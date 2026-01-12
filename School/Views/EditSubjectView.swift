@@ -37,15 +37,16 @@ struct EditSubjectView: View {
         return !trimmedName.isEmpty && !isDuplicateName
     }
     
+    // Performance: Static constants to avoid re-allocation on each view initialization
     // Debug: Predefined color palette for subjects (improved for light/dark mode visibility)
-    private let colorPalette: [String] = [
+    private static let colorPalette: [String] = [
         "FF6B6B", "4ECDC4", "45B7D1", "16A085", "F39C12", 
         "8E44AD", "27AE60", "E67E22", "E74C3C", "3498DB",
         "95A5A6", "D4AF37", "E91E63", "2980B9", "00BCD4"
     ]
     
     // Debug: Predefined icons for subjects
-    private let iconOptions: [String] = [
+    private static let iconOptions: [String] = [
         "book.fill", "book.closed.fill", "graduationcap.fill", "atom", "function",
         "globe", "leaf.fill", "paintbrush.fill", "music.note", "camera.fill",
         "hammer.fill", "gearshape.fill", "heart.fill", "brain.fill", "eye.fill",
@@ -120,7 +121,7 @@ struct EditSubjectView: View {
     private var colorSelectionSection: some View {
         Section("Farbe") {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
-                ForEach(colorPalette, id: \.self) { colorHex in
+                ForEach(Self.colorPalette, id: \.self) { colorHex in
                     Button(action: {
                         selectedColorHex = colorHex
                     }) {
@@ -145,7 +146,7 @@ struct EditSubjectView: View {
     private var iconSelectionSection: some View {
         Section("Symbol") {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
-                ForEach(iconOptions, id: \.self) { icon in
+                ForEach(Self.iconOptions, id: \.self) { icon in
                     Button(action: {
                         selectedIcon = icon
                     }) {
@@ -192,12 +193,12 @@ struct EditSubjectView: View {
         
         // Debug: Validation
         guard !trimmedName.isEmpty else {
-            print("Debug: Cannot save subject - name is empty")
+            debugLog(" Cannot save subject - name is empty")
             return
         }
         
         guard !isDuplicateName else {
-            print("Debug: Cannot save subject - duplicate name '\(trimmedName)' already exists")
+            debugLog(" Cannot save subject - duplicate name '\(trimmedName)' already exists")
             return
         }
         
@@ -208,10 +209,10 @@ struct EditSubjectView: View {
         
         do {
             try modelContext.save()
-            print("Debug: Successfully updated subject '\(trimmedName)'")
+            debugLog(" Successfully updated subject '\(trimmedName)'")
             ToastManager.shared.success("„\(trimmedName)“ aktualisiert", icon: "pencil.circle.fill", iconColor: Color(hex: selectedColorHex))
         } catch {
-            print("Debug: Error saving subject changes: \(error)")
+            debugLog(" Error saving subject changes: \(error)")
             ToastManager.shared.error("Änderungen konnten nicht gespeichert werden")
         }
         

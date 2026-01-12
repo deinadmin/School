@@ -220,7 +220,7 @@ struct CardBasedSchoolPicker: View {
                 return
             }
             
-            print("Debug: Successfully converted \(conversionResult.convertedCount) grades to \(newSystem.displayName)")
+            debugLog(" Successfully converted \(conversionResult.convertedCount) grades to \(newSystem.displayName)")
         }
         
         // Debug: Save the grading system change to SwiftData instead of UserDefaults
@@ -236,7 +236,7 @@ struct CardBasedSchoolPicker: View {
         pendingGradingSystem = nil
         gradingSystemError = nil
         
-        print("Debug: Changed grading system for \(selectedSchoolYear.displayName) to \(newSystem.displayName)")
+        debugLog(" Changed grading system for \(selectedSchoolYear.displayName) to \(newSystem.displayName)")
     }
 }
 

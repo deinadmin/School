@@ -14,7 +14,8 @@ import SwiftData
 final class Grade {
     var value: Double = 0.0
     var date: Date?
-    var schoolYearStartYear: Int = 0 // Debug: Grade belongs to specific school year
+    // Performance: Index for frequent filtering by school year
+    @Attribute(.spotlight) var schoolYearStartYear: Int = 0
     var semester: Semester? // Debug: Grade belongs to specific semester (CloudKit requires optional or no default)
     
     // Debug: SwiftData relationship to subject (CloudKit requires optional relationships)

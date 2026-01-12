@@ -33,13 +33,13 @@ class ThemeManager {
             // Debug: Only update if the color actually changed to prevent unnecessary re-renders
             if accentColor != newColor {
                 accentColor = newColor
-                print("Debug: App accent color updated to \(newColor) based on average \(average)")
+                debugLog(" App accent color updated to \(newColor) based on average \(average)")
             }
         } else {
             // Debug: Fallback to blue if no grades exist
             if accentColor != .blue {
                 accentColor = .blue
-                print("Debug: App accent color reset to default blue")
+                debugLog(" App accent color reset to default blue")
             }
         }
     }

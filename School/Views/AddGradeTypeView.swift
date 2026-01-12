@@ -194,7 +194,7 @@ struct AddGradeTypeView: View {
         let trimmedName = typeName.trimmingCharacters(in: .whitespacesAndNewlines)
         let newGradeType = GradeType(name: trimmedName, weight: weight, icon: selectedIcon)
         
-        print("Debug: Created new grade type - Name: \(trimmedName), Weight: \(weight)%, Icon: \(selectedIcon)")
+        debugLog(" Created new grade type - Name: \(trimmedName), Weight: \(weight)%, Icon: \(selectedIcon)")
         
         // Debug: Show success toast
         ToastManager.shared.success("„\(trimmedName)“ erstellt", icon: "plus.circle.fill", iconColor: Color(hex: subjectColorHex))

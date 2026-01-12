@@ -66,15 +66,16 @@ struct AddSubjectView: View {
         return !trimmedName.isEmpty && !isDuplicateName
     }
     
+    // Performance: Static constants to avoid re-allocation on each view initialization
     // Debug: Predefined color palette for subjects (improved for light/dark mode visibility)
-    private let colorPalette: [String] = [
+    private static let colorPalette: [String] = [
         "FF6B6B", "4ECDC4", "45B7D1", "16A085", "F39C12", 
         "8E44AD", "27AE60", "E67E22", "E74C3C", "3498DB",
         "95A5A6", "D4AF37", "E91E63", "2980B9", "00BCD4"
     ]
     
     // Debug: Predefined icons for subjects including those used in suggestions
-    private let iconOptions: [String] = [
+    private static let iconOptions: [String] = [
         "book.fill", "book.closed.fill", "graduationcap.fill", "atom", "function",
         "globe", "leaf.fill", "paintbrush.fill", "music.note", "camera.fill",
         "hammer.fill", "gearshape.fill", "heart.fill", "brain.fill", "eye.fill",
@@ -83,7 +84,7 @@ struct AddSubjectView: View {
     ]
     
     // Debug: Subject suggestions with official German school grade weightings
-    private let subjectSuggestions: [SubjectSuggestion] = [
+    private static let subjectSuggestions: [SubjectSuggestion] = [
         // Debug: Subjects with 50/50 split
         SubjectSuggestion(name: "Deutsch", colorHex: "FF6B6B", icon: "book.closed.fill", customGradeTypes: [
             GradeTypeDefinition(name: "Schriftlich", weight: 50, icon: "pencil"),
@@ -223,7 +224,7 @@ struct AddSubjectView: View {
                 .focused($isSubjectNameFocused)
                 .onChange(of: subjectName) { _, newValue in
                     // Debug: Reset custom grade types when user manually types (unless it matches a suggestion exactly)
-                    if !subjectSuggestions.contains(where: { $0.name == newValue }) {
+                    if !Self.subjectSuggestions.contains(where: { $0.name == newValue }) {
                         selectedCustomGradeTypes = nil
                     }
                 }
@@ -242,7 +243,7 @@ struct AddSubjectView: View {
             
             if !subjectName.isEmpty && !isDuplicateName {
                 // Debug: Filter suggestions based on current input and exclude already existing subjects
-                let filteredSuggestions = subjectSuggestions.filter { suggestion in
+                let filteredSuggestions = Self.subjectSuggestions.filter { suggestion in
                     // Debug: Check if suggestion matches input and doesn't already exist
                     let matchesInput = suggestion.name.localizedCaseInsensitiveContains(subjectName) && suggestion.name != subjectName
                     let doesNotExist = !existingSubjects.contains { existingSubject in
@@ -307,7 +308,7 @@ struct AddSubjectView: View {
     private var colorSelectionSection: some View {
         Section("Farbe") {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
-                ForEach(colorPalette, id: \.self) { colorHex in
+                ForEach(Self.colorPalette, id: \.self) { colorHex in
                     Button(action: {
                         selectedColorHex = colorHex
                     }) {
@@ -332,7 +333,7 @@ struct AddSubjectView: View {
     private var iconSelectionSection: some View {
         Section("Symbol") {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
-                ForEach(iconOptions, id: \.self) { icon in
+                ForEach(Self.iconOptions, id: \.self) { icon in
                     Button(action: {
                         selectedIcon = icon
                     }) {
@@ -458,12 +459,12 @@ struct AddSubjectView: View {
         
         // Debug: Additional validation before saving
         guard !trimmedName.isEmpty else {
-            print("Debug: Cannot save subject - name is empty")
+            debugLog(" Cannot save subject - name is empty")
             return
         }
         
         guard !isDuplicateName else {
-            print("Debug: Cannot save subject - duplicate name '\(trimmedName)' already exists")
+            debugLog(" Cannot save subject - duplicate name '\(trimmedName)' already exists")
             return
         }
         
@@ -473,7 +474,7 @@ struct AddSubjectView: View {
         }
         
         let typeDescription = customGradeTypes != nil ? "with custom grade types" : "with default grade types"
-        print("Debug: Creating new subject '\(trimmedName)' \(typeDescription)")
+        debugLog(" Creating new subject '\(trimmedName)' \(typeDescription)")
         
         DataManager.createSubject(
             name: trimmedName,

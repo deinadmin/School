@@ -70,44 +70,44 @@ struct AddGradeView: View {
             .onAppear {
                 // Debug: Only initialize once to prevent resetting when navigating back from picker
                 guard !hasInitialized else {
-                    print("Debug: onAppear called but already initialized, skipping to preserve user selection")
+                    debugLog(" onAppear called but already initialized, skipping to preserve user selection")
                     return
                 }
                 
-                print("Debug: onAppear called - first initialization")
+                debugLog(" onAppear called - first initialization")
                 
                 // Debug: Load grade types from context and cache them for stable identity
                 allGradeTypes = GradeTypeManager.getGradeTypes(for: subject, from: modelContext)
                 
-                print("Debug: preselectedGradeType: \(preselectedGradeType?.name ?? "nil")")
-                print("Debug: Available grade types: \(allGradeTypes.map { $0.name }.joined(separator: ", "))")
+                debugLog(" preselectedGradeType: \(preselectedGradeType?.name ?? "nil")")
+                debugLog(" Available grade types: \(allGradeTypes.map { $0.name }.joined(separator: ", "))")
                 
                 if let preselectedType = preselectedGradeType {
-                    print("Debug: Looking for match with ID: \(preselectedType.persistentModelID)")
+                    debugLog(" Looking for match with ID: \(preselectedType.persistentModelID)")
                     
                     // Debug: Print all available IDs
                     for gradeType in allGradeTypes {
-                        print("Debug: Available ID: \(gradeType.persistentModelID) (\(gradeType.name))")
+                        debugLog(" Available ID: \(gradeType.persistentModelID) (\(gradeType.name))")
                     }
                     
                     if let matchingType = allGradeTypes.first(where: { $0.persistentModelID == preselectedType.persistentModelID }) {
                         selectedGradeType = matchingType
-                        print("Debug: ✅ Successfully matched and preselected: \(matchingType.name)")
+                        debugLog(" ✅ Successfully matched and preselected: \(matchingType.name)")
                     } else {
-                        print("Debug: ❌ No matching ID found, checking by name...")
+                        debugLog(" ❌ No matching ID found, checking by name...")
                         // Debug: Fallback to name matching
                         if let matchingByName = allGradeTypes.first(where: { $0.name == preselectedType.name }) {
                             selectedGradeType = matchingByName
-                            print("Debug: ✅ Matched by name: \(matchingByName.name)")
+                            debugLog(" ✅ Matched by name: \(matchingByName.name)")
                         } else {
                             selectedGradeType = allGradeTypes.first
-                            print("Debug: ❌ No match found, fallback to first: \(allGradeTypes.first?.name ?? "none")")
+                            debugLog(" ❌ No match found, fallback to first: \(allGradeTypes.first?.name ?? "none")")
                         }
                     }
                 } else if !allGradeTypes.isEmpty {
                     // Debug: Fallback to first available grade type
                     selectedGradeType = allGradeTypes[0]
-                    print("Debug: No preselection provided, fallback to first grade type: \(allGradeTypes[0].name)")
+                    debugLog(" No preselection provided, fallback to first grade type: \(allGradeTypes[0].name)")
                 }
                 
                 // Debug: Mark as initialized so we don't reset on subsequent onAppear calls
@@ -222,7 +222,7 @@ struct AddGradeView: View {
                 Picker("Typ", selection: Binding(
                     get: { selectedGradeType ?? allGradeTypes.first! },
                     set: { 
-                        print("Debug: Picker selection changed to: \($0.name)")
+                        debugLog(" Picker selection changed to: \($0.name)")
                         selectedGradeType = $0 
                     }
                 )) {
@@ -266,7 +266,7 @@ struct AddGradeView: View {
     private func saveGrade() {
         guard let value = gradeValue,
               let gradeType = selectedGradeType else { 
-            print("Debug: Cannot save grade - missing value or grade type")
+            debugLog(" Cannot save grade - missing value or grade type")
             return 
         }
         
@@ -280,7 +280,7 @@ struct AddGradeView: View {
             in: modelContext
         )
         
-        print("Debug: Saved grade \(value) for type '\(gradeType.name)'")
+        debugLog(" Saved grade \(value) for type '\(gradeType.name)'")
         
         // Debug: Show success toast with grade display value
         let displayValue = GradingSystemHelpers.formatGradeForDisplay(value, system: schoolYear.gradingSystem)

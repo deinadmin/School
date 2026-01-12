@@ -203,7 +203,7 @@ struct EditGradeTypeView: View {
         // Debug: Create a temporary GradeType with updated values for the callback
         let tempGradeType = GradeType(name: trimmedName, weight: weight, icon: selectedIcon)
         
-        print("Debug: Updated grade type - Name: \(trimmedName), Weight: \(weight)%, Icon: \(selectedIcon)")
+        debugLog(" Updated grade type - Name: \(trimmedName), Weight: \(weight)%, Icon: \(selectedIcon)")
         
         // Debug: Show success toast
         ToastManager.shared.success("„\(trimmedName)“ aktualisiert", icon: "pencil.circle.fill", iconColor: Color(hex: gradeType.subject?.colorHex ?? "#007AFF"))

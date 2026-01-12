@@ -41,7 +41,8 @@ final class Subject {
 @Model
 final class FinalGrade {
     var value: Double = 0.0
-    var schoolYearStartYear: Int = 0 // Debug: Final grade belongs to specific school year
+    // Performance: Index for frequent filtering by school year
+    @Attribute(.spotlight) var schoolYearStartYear: Int = 0
     var semester: Semester? // Debug: Final grade belongs to specific semester (CloudKit requires optional or no default)
     
     // Debug: SwiftData relationship to subject (CloudKit requires optional relationships)

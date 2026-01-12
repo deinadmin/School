@@ -78,10 +78,10 @@ class CloudKitSyncManager {
                 self?.isCloudKitAvailable = (status == .available)
                 
                 if let error = error {
-                    print("Debug: CloudKit account status error: \(error)")
+                    debugLog(" CloudKit account status error: \(error)")
                     self?.currentError = .accountError(error.localizedDescription)
                 } else {
-                    print("Debug: CloudKit account status: \(self?.accountStatusDescription ?? "unknown")")
+                    debugLog(" CloudKit account status: \(self?.accountStatusDescription ?? "unknown")")
                     
                     // Debug: Clear account-related errors if status is now available
                     if status == .available && self?.currentError?.isAccountRelated == true {
@@ -100,7 +100,7 @@ class CloudKitSyncManager {
         // Debug: Monitor for CloudKit notifications
         NotificationCenter.default.publisher(for: .CKAccountChanged)
             .sink { [weak self] _ in
-                print("Debug: CloudKit account changed")
+                debugLog(" CloudKit account changed")
                 self?.checkCloudKitAvailability()
             }
             .store(in: &cancellables)
@@ -109,7 +109,7 @@ class CloudKitSyncManager {
         // This detects actual SwiftData sync events happening in the background
         NotificationCenter.default.publisher(for: NSNotification.Name("NSPersistentStoreRemoteChange"))
             .sink { [weak self] notification in
-                print("Debug: SwiftData remote change detected - sync occurred")
+                debugLog(" SwiftData remote change detected - sync occurred")
                 self?.handleRemoteChange(notification)
             }
             .store(in: &cancellables)
@@ -141,7 +141,7 @@ class CloudKitSyncManager {
         }
         
         guard !isSyncing else {
-            print("Debug: Sync already in progress")
+            debugLog(" Sync already in progress")
             return
         }
         
@@ -149,7 +149,7 @@ class CloudKitSyncManager {
         syncStatus = .syncing
         currentError = nil
         
-        print("Debug: User requested manual sync - checking CloudKit status")
+        debugLog(" User requested manual sync - checking CloudKit status")
         
         // ✅ Real CloudKit status check instead of simulation
         checkCloudKitAvailability()
@@ -163,7 +163,7 @@ class CloudKitSyncManager {
                 self.syncStatus = .synced
                 self.saveLastSyncDate()
                 
-                print("Debug: Manual sync trigger completed - SwiftData continues sync in background")
+                debugLog(" Manual sync trigger completed - SwiftData continues sync in background")
             }
         }
     }
@@ -191,7 +191,7 @@ class CloudKitSyncManager {
             self.lastSyncDate = Date()
             self.saveLastSyncDate()
             self.syncStatus = .synced
-            print("Debug: Updated last sync date from remote change: \(self.lastSyncDate!)")
+            debugLog(" Updated last sync date from remote change: \(self.lastSyncDate!)")
         }
     }
     
@@ -204,7 +204,7 @@ class CloudKitSyncManager {
         DispatchQueue.main.async {
             self.lastSyncDate = Date()
             self.saveLastSyncDate()
-            print("Debug: Updated sync timestamp after data save")
+            debugLog(" Updated sync timestamp after data save")
         }
     }
     
@@ -222,12 +222,12 @@ class CloudKitSyncManager {
         database.fetchAllRecordZones { [weak self] zones, error in
             DispatchQueue.main.async {
                 if let error = error {
-                    print("Debug: Error fetching CloudKit zones: \(error)")
+                    debugLog(" Error fetching CloudKit zones: \(error)")
                     self?.recordZoneInfo = nil
                 } else if let zones = zones, !zones.isEmpty {
                     let zoneNames = zones.map { $0.zoneID.zoneName }.joined(separator: ", ")
                     self?.recordZoneInfo = "\(zones.count) Zone(n): \(zoneNames)"
-                    print("Debug: Fetched CloudKit zones: \(zoneNames)")
+                    debugLog(" Fetched CloudKit zones: \(zoneNames)")
                 } else {
                     self?.recordZoneInfo = "Keine Zonen gefunden"
                 }
@@ -247,7 +247,7 @@ class CloudKitSyncManager {
     /// Handle CloudKit errors
     /// Debug: Converts CloudKit errors to user-friendly messages
     func handleCloudKitError(_ error: Error) {
-        print("Debug: CloudKit error: \(error)")
+        debugLog(" CloudKit error: \(error)")
         
         if let ckError = error as? CKError {
             switch ckError.code {
