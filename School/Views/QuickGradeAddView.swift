@@ -15,6 +15,7 @@ struct QuickGradeAddView: View {
     
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(ThemeManager.self) private var themeManager // Debug: Get global accent color
     
     @Query(sort: \Subject.name) private var allSubjects: [Subject]
     
@@ -28,7 +29,8 @@ struct QuickGradeAddView: View {
                                 subject: subject,
                                 selectedSchoolYear: selectedSchoolYear,
                                 selectedSemester: selectedSemester,
-                                dismissSheet: dismiss
+                                dismissSheet: dismiss,
+                                themeManager: themeManager
                             )) {
                                 QuickGradeSubjectRowView(
                                     subject: subject,
@@ -60,6 +62,7 @@ struct QuickGradeTypeSelectionView: View {
     let selectedSchoolYear: SchoolYear
     let selectedSemester: Semester
     let dismissSheet: DismissAction
+    let themeManager: ThemeManager // Debug: Get global accent color
     
     @Environment(\.modelContext) private var modelContext
     
@@ -80,7 +83,8 @@ struct QuickGradeTypeSelectionView: View {
                                 gradeType: gradeType,
                                 selectedSchoolYear: selectedSchoolYear,
                                 selectedSemester: selectedSemester,
-                                dismissSheet: dismissSheet
+                                dismissSheet: dismissSheet,
+                                themeManager: themeManager
                             )) {
                                 QuickGradeTypeRowView(
                                     gradeType: gradeType,
@@ -136,6 +140,7 @@ struct QuickGradeValueSelectionView: View {
     let selectedSchoolYear: SchoolYear
     let selectedSemester: Semester
     let dismissSheet: DismissAction
+    let themeManager: ThemeManager // Debug: Get global accent color
     
     @Environment(\.modelContext) private var modelContext
     
@@ -298,6 +303,10 @@ struct QuickGradeValueSelectionView: View {
             semester: selectedSemester,
             in: modelContext
         )
+        
+        // Debug: Show success toast with grade display value
+        let displayValue = GradingSystemHelpers.formatGradeForDisplay(gradeValue, system: selectedSchoolYear.gradingSystem)
+        ToastManager.shared.success("Note \(displayValue) hinzugefügt", icon: "checkmark.circle.fill", iconColor: themeManager.accentColor)
         
         // Debug: Update widget after adding new grade
         updateWidget()

@@ -10,6 +10,7 @@ import SwiftUI
 struct AddGradeTypeView: View {
     @Environment(\.dismiss) private var dismiss
     let onSave: (GradeType) -> Void
+    let subjectColorHex: String
     
     @State private var typeName: String = ""
     @State private var weight: Int = 10
@@ -160,10 +161,10 @@ struct AddGradeTypeView: View {
         Section("Vorschau") {
             HStack {
                 Image(systemName: selectedIcon)
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(Color(hex: subjectColorHex))
                     .font(.title2)
                     .frame(width: 40, height: 40)
-                    .background(Color.accentColor.opacity(0.2))
+                    .background(Color(hex: subjectColorHex).opacity(0.2))
                     .cornerRadius(8)
                 
                 VStack(alignment: .leading, spacing: 2) {
@@ -195,7 +196,10 @@ struct AddGradeTypeView: View {
         
         print("Debug: Created new grade type - Name: \(trimmedName), Weight: \(weight)%, Icon: \(selectedIcon)")
         
+        // Debug: Show success toast
+        ToastManager.shared.success("„\(trimmedName)“ erstellt", icon: "plus.circle.fill", iconColor: Color(hex: subjectColorHex))
+        
         onSave(newGradeType)
         dismiss()
     }
-} 
+}

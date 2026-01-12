@@ -252,7 +252,7 @@ struct YearChip: View {
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(isSelected ? Color.blue : Color(.systemGray6))
+                    .fill(isSelected ? Color.accentColor : Color(.systemGray6))
             )
             .overlay(
                 Capsule()
@@ -273,7 +273,7 @@ struct GradingSystemCard: View {
             VStack(spacing: 8) {
                 Image(systemName: system == .traditional ? "1.circle.fill" : "15.circle.fill")
                     .font(.system(size: 24, weight: .medium))
-                    .foregroundColor(isSelected ? .white : .blue)
+                    .foregroundColor(isSelected ? .white : .accentColor)
                 
                 VStack(spacing: 2) {
                     Text(system.displayName)
@@ -291,7 +291,7 @@ struct GradingSystemCard: View {
                 RoundedRectangle(cornerRadius: 20)
                     .fill(isSelected ?
                         LinearGradient(
-                            colors: [Color.blue, Color.blue.opacity(0.8)],
+                            colors: [Color.accentColor, Color.accentColor.opacity(0.8)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ) :
@@ -322,7 +322,7 @@ struct SemesterCard: View {
             VStack(spacing: 8) {
                 Image(systemName: semester == .first ? "1.circle.fill" : "2.circle.fill")
                     .font(.system(size: 24, weight: .medium))
-                    .foregroundColor(isSelected ? .white : .blue)
+                    .foregroundColor(isSelected ? .white : .accentColor)
                 
                 Text(semester.displayName)
                     .font(.system(size: 14, weight: .medium))
@@ -334,7 +334,7 @@ struct SemesterCard: View {
                 RoundedRectangle(cornerRadius: 20)
                     .fill(isSelected ?
                         LinearGradient(
-                            colors: [Color.blue, Color.blue.opacity(0.8)],
+                            colors: [Color.accentColor, Color.accentColor.opacity(0.8)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ) :

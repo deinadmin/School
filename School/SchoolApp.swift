@@ -11,6 +11,9 @@ import CloudKit
 
 @main
 struct SchoolApp: App {
+    // Debug: Global theme manager for dynamic accent colors
+    @State private var themeManager = ThemeManager.shared
+    
   // Debug: Create ModelContainer once as stored property to prevent duplicate CloudKit registrations
   private let container: ModelContainer
   
@@ -72,6 +75,9 @@ struct SchoolApp: App {
   var body: some Scene {
     WindowGroup {
       ContentView()
+        .withToastOverlay() // Debug: Enable toast notifications throughout the entire app
+        .environment(themeManager)
+        .tint(themeManager.accentColor)
     }
     .modelContainer(container)
   }

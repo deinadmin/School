@@ -127,10 +127,10 @@ struct SubjectDetailView: View {
                 )
             }
             .sheet(isPresented: $showingAddGradeType) {
-                AddGradeTypeView { newGradeType in
+                AddGradeTypeView(onSave: { newGradeType in
                     GradeTypeManager.addGradeType(name: newGradeType.name, weight: newGradeType.weight, icon: newGradeType.icon, for: subject, in: modelContext)
                     gradeTypesUpdateTrigger = UUID() // Debug: Trigger view refresh
-                }
+                }, subjectColorHex: subject.colorHex)
             }
             .sheet(item: $gradeTypeToEdit) { gradeType in
                 EditGradeTypeView(gradeType: gradeType) { updatedGradeType in
@@ -171,6 +171,7 @@ struct SubjectDetailView: View {
             .alert("Endnote entfernen?", isPresented: $showingRemoveFinalGradeAlert) {
                 Button("Entfernen", role: .destructive) {
                     DataManager.removeFinalGrade(for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
+                    ToastManager.shared.success("Endnote entfernt", icon: "star.slash.fill", iconColor: Color(hex: subject.colorHex))
                 }
                 Button("Abbrechen", role: .cancel) { }
             } message: {
@@ -592,6 +593,8 @@ struct SubjectDetailView: View {
     
     // Debug: Delete grade type and all its grades
     private func deleteGradeType(_ gradeType: GradeType) {
+        let gradeTypeName = gradeType.name
+        
         // Debug: Delete all grades of this type first
         DataManager.deleteGradesOfType(gradeType, for: subject, schoolYear: selectedSchoolYear, semester: selectedSemester, from: modelContext)
         
@@ -600,7 +603,10 @@ struct SubjectDetailView: View {
         
         gradeTypeToDelete = nil
         gradeTypesUpdateTrigger = UUID() // Debug: Trigger view refresh
-        print("Debug: Deleted grade type '\(gradeType.name)' and all its grades")
+        print("Debug: Deleted grade type '\(gradeTypeName)' and all its grades")
+        
+        // Debug: Show success toast
+        ToastManager.shared.success("„\(gradeTypeName)“ gelöscht", icon: "trash.fill", iconColor: Color(hex: subject.colorHex))
     }
     
     // Debug: Color coding for grades with unique colors per grade range (German system: 0.7 = best, 6.0 = worst)
@@ -820,6 +826,9 @@ struct FixWeightsView: View {
             }
         }
         
+        // Debug: Show success toast
+        ToastManager.shared.success("Gewichtungen angepasst", icon: "percent", iconColor: Color(hex: subject.colorHex))
+        
         onSave()
         dismiss()
     }
@@ -908,7 +917,9 @@ struct GradeRowView: View {
         )
         .alert("Note löschen?", isPresented: $showingDeleteAlert) {
             Button("Löschen", role: .destructive) {
+                let gradeDisplayValue = GradingSystemHelpers.gradeDisplayText(for: grade.value, system: schoolYear.gradingSystem)
                 DataManager.deleteGrade(grade, from: modelContext)
+                ToastManager.shared.success("Note \(gradeDisplayValue) gelöscht", icon: "trash.fill", iconColor: Color(hex: grade.subject?.colorHex ?? "#007AFF"))
             }
             Button("Abbrechen", role: .cancel) { }
         } message: {
@@ -1148,7 +1159,13 @@ struct SetFinalGradeView: View {
             return
         }
         
+        
         DataManager.setFinalGrade(value: gradeValue, for: subject, schoolYear: schoolYear, semester: semester, in: modelContext)
+        
+        // Debug: Show success toast with final grade value and subject color
+        let displayValue = GradingSystemHelpers.gradeDisplayText(for: gradeValue, system: schoolYear.gradingSystem)
+        ToastManager.shared.success("Endnote auf \(displayValue) gesetzt", icon: "star.fill", iconColor: Color(hex: subject.colorHex))
+        
         dismiss()
     }
 }

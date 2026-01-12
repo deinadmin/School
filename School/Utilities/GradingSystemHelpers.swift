@@ -67,6 +67,12 @@ class GradingSystemHelpers {
         }
     }
     
+    /// Convenience alias for gradeDisplayText - used by toast notifications
+    /// Debug: Returns formatted grade string for displaying in UI notifications
+    static func formatGradeForDisplay(_ value: Double, system: GradingSystem) -> String {
+        return gradeDisplayText(for: value, system: system)
+    }
+    
     /// Traditional system display (1+ to 6)
     private static func traditionalGradeDisplayText(for value: Double) -> String {
         switch value {

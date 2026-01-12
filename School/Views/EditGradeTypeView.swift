@@ -205,7 +205,10 @@ struct EditGradeTypeView: View {
         
         print("Debug: Updated grade type - Name: \(trimmedName), Weight: \(weight)%, Icon: \(selectedIcon)")
         
+        // Debug: Show success toast
+        ToastManager.shared.success("„\(trimmedName)“ aktualisiert", icon: "pencil.circle.fill", iconColor: Color(hex: gradeType.subject?.colorHex ?? "#007AFF"))
+        
         onSave(tempGradeType)
         dismiss()
     }
-} 
+}

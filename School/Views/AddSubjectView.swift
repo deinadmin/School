@@ -483,6 +483,9 @@ struct AddSubjectView: View {
             in: modelContext
         )
         
+        // Debug: Show success toast
+        ToastManager.shared.success("„\(trimmedName)“ erstellt", icon: "plus.circle.fill", iconColor: Color(hex: selectedColorHex))
+        
         dismiss()
     }
-} 
+}

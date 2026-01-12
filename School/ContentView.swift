@@ -13,6 +13,8 @@ import WidgetKit
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass // Debug: Detect iPad vs iPhone
+    @Environment(ThemeManager.self) private var themeManager // Debug: Global theme manager for accent colors
+    @Environment(\.dismiss) private var dismiss // Debug: Restore dismiss environment
     @State private var selectedSchoolYear: SchoolYear = SchoolYear.current
     @State private var selectedSemester: Semester = Semester.first
     @State private var showingAddSubject = false
@@ -93,27 +95,15 @@ struct ContentView: View {
     }
     
     var body: some View {
-        // Debug: Use iPad layout for regular horizontal size class, iPhone layout otherwise
-        if horizontalSizeClass == .regular {
-            iPadLayout
-        } else {
-            iPhoneLayout
+        Group {
+            // Debug: Use iPad layout for regular horizontal size class, iPhone layout otherwise
+            if horizontalSizeClass == .regular {
+                iPadLayout
+            } else {
+                iPhoneLayout
+            }
         }
-    }
-    
-    // MARK: - iPad Layout
-    
-    /// iPad-optimized layout with sidebar for subjects
-    /// Debug: Uses NavigationSplitView for better iPad experience
-    private var iPadLayout: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            // Sidebar content
-            iPadSidebar
-        } detail: {
-            // Detail view
-            iPadDetailView
-        }
-        .navigationSplitViewStyle(.balanced)
+        .tint(themeManager.accentColor) // Debug: Apply global accent color tint locally to ensure immediate responsiveness
         .sheet(isPresented: $showingAddSubject) {
             AddSubjectView()
         }
@@ -125,17 +115,24 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView(onImportComplete: self.refreshCurrentSelection)
+                .environment(themeManager) // Debug: Ensure theme manager is available in settings
+                .tint(themeManager.accentColor) // Debug: Apply dynamic accent color to settings content
         }
         .sheet(item: $subjectToEdit) { subject in
             EditSubjectView(subject: subject)
         }
-        .alert("Fach löschen?", isPresented: .constant(subjectToDelete != nil), presenting: subjectToDelete) { subject in
+        .alert("Fach löschen?", isPresented: Binding(
+            get: { subjectToDelete != nil },
+            set: { if !$0 { subjectToDelete = nil } }
+        ), presenting: subjectToDelete) { subject in
             Button("Löschen", role: .destructive) {
+                let subjectName = subject.name
                 DataManager.deleteSubject(subject, from: modelContext)
                 if selectedSubject?.persistentModelID == subject.persistentModelID {
                     selectedSubject = nil
                 }
                 subjectToDelete = nil
+                ToastManager.shared.success("\"\(subjectName)\" gelöscht", icon: "trash.fill")
             }
             Button("Abbrechen", role: .cancel) {
                 subjectToDelete = nil
@@ -164,9 +161,32 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             updateWidget()
         }
+        .id("\(selectedSchoolYearKey)-\(selectedSemesterKey)") // Debug: Force refresh on year/semester change
+        // Debug: Update global accent color when average or grading system changes
+        .onChange(of: overallAverage, initial: true) { _, newAverage in
+            themeManager.update(average: newAverage, system: selectedSchoolYear.gradingSystem)
+        }
+        .onChange(of: selectedSchoolYear.gradingSystem) { _, system in
+            themeManager.update(average: overallAverage, system: system)
+        }
         .onChange(of: roundPointAverages) { _, _ in
             updateWidget()
         }
+    }
+    
+    // MARK: - iPad Layout
+    
+    /// iPad-optimized layout with sidebar for subjects
+    /// Debug: Uses NavigationSplitView for better iPad experience
+    private var iPadLayout: some View {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            // Sidebar content
+            iPadSidebar
+        } detail: {
+            // Detail view
+            iPadDetailView
+        }
+        .navigationSplitViewStyle(.balanced)
     }
     
     /// iPad sidebar with subject list and controls
@@ -204,7 +224,9 @@ struct ContentView: View {
                     StatisticsCardView(
                         subjects: sortedSubjects,
                         selectedSchoolYear: selectedSchoolYear,
-                        selectedSemester: selectedSemester
+                        selectedSemester: selectedSemester,
+                        dismissSheet: dismiss,
+                        themeManager: themeManager
                     )
                 }
                                 
@@ -393,17 +415,24 @@ struct ContentView: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            Button(action: {
-                subjectToEdit = subject
-            }) {
-                Label("Fach bearbeiten", systemImage: "pencil")
+            Group {
+                Button(action: {
+                    subjectToEdit = subject
+                }) {
+                    Label("Fach bearbeiten", systemImage: "pencil")
+                }
+                
+                Button(role: .destructive) {
+                    let subjectToDel = subject
+                    // Debug: Delay alert presentation slightly to allow context menu to dismiss properly (prevents presentation conflict)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        subjectToDelete = subjectToDel
+                    }
+                } label: {
+                    Label("Fach löschen", systemImage: "trash")
+                }
             }
-            
-            Button(role: .destructive) {
-                subjectToDelete = subject
-            } label: {
-                Label("Fach löschen", systemImage: "trash")
-            }
+            .tint(nil) // Debug: Prevent context menu icons from inheriting the dynamic accent color
         }
     }
     
@@ -444,7 +473,7 @@ struct ContentView: View {
                 .multilineTextAlignment(.center)
             }
             
-            if showMotivationalCharacter, let overallAvg = overallAverage {
+            if showMotivationalCharacter, overallAverage != nil {
                 VStack(spacing: 16) {
                     Text(speechBubbleText)
                         .font(.title2)
@@ -486,7 +515,9 @@ struct ContentView: View {
                             StatisticsCardView(
                                 subjects: sortedSubjects,
                                 selectedSchoolYear: selectedSchoolYear,
-                                selectedSemester: selectedSemester
+                                selectedSemester: selectedSemester,
+                                dismissSheet: dismiss,
+                                themeManager: themeManager
                             )
                         }
                         
@@ -500,43 +531,15 @@ struct ContentView: View {
                                 
                                 Spacer()
                                 
-                                // Debug: View mode toggle buttons
-                                HStack(spacing: 8) {
-                                    Button(action: {
-                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
-                                            isGridView = false
-                                            storedIsGridView = false // Debug: Save to UserDefaults
-                                        }
-                                    }) {
-                                        Image(systemName: "list.bullet")
-                                            .font(.body)
-                                            .foregroundColor(isGridView ? .secondary : .accentColor)
-                                            .frame(width: 32, height: 32)
-                                            .background(
-                                                RoundedRectangle(cornerRadius: 8)
-                                                    .fill(isGridView ? Color(.systemGray6) : Color.accentColor.opacity(0.15))
-                                            )
-                                    }
-                                    .buttonStyle(.plain)
-                                    .sensoryFeedback(.increase, trigger: isGridView)
-                                    
-                                    Button(action: {
-                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
-                                            isGridView = true
-                                            storedIsGridView = true // Debug: Save to UserDefaults
-                                        }
-                                    }) {
-                                        Image(systemName: "square.grid.2x2")
-                                            .font(.body)
-                                            .foregroundColor(isGridView ? .accentColor : .secondary)
-                                            .frame(width: 32, height: 32)
-                                            .background(
-                                                RoundedRectangle(cornerRadius: 8)
-                                                    .fill(isGridView ? Color.accentColor.opacity(0.15) : Color(.systemGray6))
-                                            )
-                                    }
-                                    .buttonStyle(.plain)
-                                    .sensoryFeedback(.increase, trigger: isGridView)
+                                // Debug: Native segmented picker for list/grid view toggle
+                                Picker("Ansicht", selection: $isGridView) {
+                                    Image(systemName: "list.bullet").tag(false)
+                                    Image(systemName: "square.grid.2x2").tag(true)
+                                }
+                                .pickerStyle(.segmented)
+                                .frame(width: 80)
+                                .onChange(of: isGridView) { _, newValue in
+                                    storedIsGridView = newValue // Debug: Save to UserDefaults
                                 }
                             }
                             .padding(.horizontal, 4)
@@ -580,8 +583,10 @@ struct ContentView: View {
                                     subjects: sortedSubjects,
                                     selectedSchoolYear: selectedSchoolYear,
                                     selectedSemester: selectedSemester,
-                                    subjectToEdit: $subjectToEdit,
-                                    subjectToDelete: $subjectToDelete
+                                    dismissSheet: dismiss,
+                                    themeManager: themeManager,
+                                    onEdit: { subjectToEdit = $0 },
+                                    onDelete: { subjectToDelete = $0 }
                                 )
                                 .id("gridView")
                                 .transition(.asymmetric(
@@ -600,8 +605,8 @@ struct ContentView: View {
                                                 subject: subject,
                                                 selectedSchoolYear: selectedSchoolYear,
                                                 selectedSemester: selectedSemester,
-                                                subjectToEdit: $subjectToEdit,
-                                                subjectToDelete: $subjectToDelete
+                                                onEdit: { subjectToEdit = $0 },
+                                                onDelete: { subjectToDelete = $0 }
                                             )
                                             .id("list-\(subject.persistentModelID)")
                                         }
@@ -730,8 +735,10 @@ struct ContentView: View {
             }
             .alert("Fach löschen?", isPresented: .constant(subjectToDelete != nil), presenting: subjectToDelete) { subject in
                 Button("Löschen", role: .destructive) {
+                    let subjectName = subject.name
                     DataManager.deleteSubject(subject, from: modelContext)
                     subjectToDelete = nil
+                    ToastManager.shared.success("\"\(subjectName)\" gelöscht", icon: "trash.fill")
                 }
                 Button("Abbrechen", role: .cancel) {
                     subjectToDelete = nil
@@ -872,6 +879,8 @@ struct StatisticsCardView: View {
     let subjects: [Subject]
     let selectedSchoolYear: SchoolYear
     let selectedSemester: Semester
+    let dismissSheet: DismissAction
+    let themeManager: ThemeManager
     @Environment(\.modelContext) private var modelContext
     // Debug: App Storage for rounding setting to trigger UI updates
     @AppStorage("roundPointAverages") private var roundPointAverages = true
@@ -1055,9 +1064,9 @@ struct SubjectRowView: View {
     let subject: Subject
     let selectedSchoolYear: SchoolYear
     let selectedSemester: Semester
+    let onEdit: (Subject) -> Void
+    let onDelete: (Subject) -> Void
     @Environment(\.modelContext) private var modelContext
-    @Binding var subjectToEdit: Subject?
-    @Binding var subjectToDelete: Subject?
     // Debug: App Storage for rounding setting to trigger UI updates
     @AppStorage("roundPointAverages") private var roundPointAverages = true
     
@@ -1136,16 +1145,21 @@ struct SubjectRowView: View {
         )
         .contextMenu {
             Button(action: {
-                subjectToEdit = subject
+                onEdit(subject)
             }) {
                 Label("Fach bearbeiten", systemImage: "pencil")
             }
+            .tint(nil)
             
             Button(role: .destructive) {
-                subjectToDelete = subject
+                // Debug: Delay alert presentation slightly to allow context menu to dismiss properly
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    onDelete(subject)
+                }
             } label: {
                 Label("Fach löschen", systemImage: "trash")
             }
+            .tint(.red)
         }
         .id(roundPointAverages) // Debug: Force UI update when rounding setting changes
     }
@@ -1156,8 +1170,10 @@ struct SubjectGridView: View {
     let subjects: [Subject]
     let selectedSchoolYear: SchoolYear
     let selectedSemester: Semester
-    @Binding var subjectToEdit: Subject?
-    @Binding var subjectToDelete: Subject?
+    let dismissSheet: DismissAction
+    let themeManager: ThemeManager
+    let onEdit: (Subject) -> Void
+    let onDelete: (Subject) -> Void
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     // Debug: App Storage for rounding setting to trigger UI updates
@@ -1181,8 +1197,8 @@ struct SubjectGridView: View {
                         subject: subject,
                         selectedSchoolYear: selectedSchoolYear,
                         selectedSemester: selectedSemester,
-                        subjectToEdit: $subjectToEdit,
-                        subjectToDelete: $subjectToDelete
+                        onEdit: onEdit,
+                        onDelete: onDelete
                     )
                     .id("grid-\(subject.persistentModelID)")
                 }
@@ -1199,8 +1215,9 @@ struct SubjectGridItemView: View {
     let selectedSchoolYear: SchoolYear
     let selectedSemester: Semester
     @Environment(\.modelContext) private var modelContext
-    @Binding var subjectToEdit: Subject?
-    @Binding var subjectToDelete: Subject?
+    let onEdit: (Subject) -> Void
+    let onDelete: (Subject) -> Void
+    @AppStorage("roundPointAverages") private var roundPointAverages = true // Debug: Fix scope issue for rounding toggle updates
     
     // Debug: Get grades for this subject in the selected period
     private var gradesForSelectedPeriod: [Grade] {
@@ -1269,23 +1286,32 @@ struct SubjectGridItemView: View {
         )
         .contextMenu {
             Button(action: {
-                subjectToEdit = subject
+                onEdit(subject)
             }) {
                 Label("Fach bearbeiten", systemImage: "pencil")
             }
+            .tint(nil)
             
             Button(role: .destructive) {
-                subjectToDelete = subject
+                // Debug: Delay alert presentation slightly to allow context menu to dismiss properly
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    onDelete(subject)
+                }
             } label: {
                 Label("Fach löschen", systemImage: "trash")
             }
+            .tint(.red)
         }
+        .id(roundPointAverages) // Debug: Force UI update when rounding setting changes
     }
 }
+    
+
 
 // Debug: Settings view with app info and configuration options
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(ThemeManager.self) private var themeManager // Debug: Get global accent color
     @Environment(\.modelContext) private var modelContext
     var onImportComplete: () -> Void
     @State private var roundPointAverages = true
@@ -1726,6 +1752,7 @@ struct SettingsView: View {
                         isExporting = false
                         showingExportSheet = true
                         print("Debug: Export successful, showing share sheet")
+                        ToastManager.shared.info("Backup bereit zum Teilen", icon: "square.and.arrow.up.fill")
                     }
                 } else {
                     print("Debug: Failed to create temporary file")
@@ -1906,6 +1933,10 @@ struct SettingsView: View {
                     
                     self.isImporting = false
                     print("Debug: Data imported successfully, original grading systems restored")
+                    
+                    // Debug: Show success toast with grade display value
+                    ToastManager.shared.success("Daten importiert", icon: "arrow.down.circle.fill", iconColor: self.themeManager.accentColor)
+                    
                     self.onImportComplete()
                     
                     // Debug: Dismiss settings view after successful import to prevent stale UI references
@@ -1915,6 +1946,7 @@ struct SettingsView: View {
                     print("Debug: Import failed with error: \(decodingError?.localizedDescription ?? "Unknown error")")
                     self.isImporting = false
                     self.showingImportError = true
+                    ToastManager.shared.error("Import fehlgeschlagen")
                 }
             }
         }

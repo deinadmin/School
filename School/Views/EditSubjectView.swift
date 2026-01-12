@@ -209,8 +209,10 @@ struct EditSubjectView: View {
         do {
             try modelContext.save()
             print("Debug: Successfully updated subject '\(trimmedName)'")
+            ToastManager.shared.success("„\(trimmedName)“ aktualisiert", icon: "pencil.circle.fill", iconColor: Color(hex: selectedColorHex))
         } catch {
             print("Debug: Error saving subject changes: \(error)")
+            ToastManager.shared.error("Änderungen konnten nicht gespeichert werden")
         }
         
         dismiss()

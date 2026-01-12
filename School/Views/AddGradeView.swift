@@ -282,6 +282,10 @@ struct AddGradeView: View {
         
         print("Debug: Saved grade \(value) for type '\(gradeType.name)'")
         
+        // Debug: Show success toast with grade display value
+        let displayValue = GradingSystemHelpers.formatGradeForDisplay(value, system: schoolYear.gradingSystem)
+        ToastManager.shared.success("Note \(displayValue) hinzugefügt", icon: "checkmark.circle.fill", iconColor: Color(hex: subject.colorHex))
+        
         // Debug: Update widget after adding new grade
         updateWidget()
         
