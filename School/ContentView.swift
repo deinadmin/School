@@ -213,7 +213,7 @@ struct ContentView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
-                        .glassEffect(.regular.tint(.accentColor.opacity(0.9)), in: RoundedRectangle(cornerRadius: 35))
+                        .glassEffect(.regular.tint(themeManager.accentColor.opacity(0.9)), in: RoundedRectangle(cornerRadius: 35))
                         .contentShape(RoundedRectangle(cornerRadius: 35))
                     }
                     .buttonStyle(.plain)
@@ -245,7 +245,7 @@ struct ContentView: View {
                     }) {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(themeManager.accentColor)
                             .symbolRenderingMode(.hierarchical)
                     }
                     .buttonStyle(.plain)
@@ -319,7 +319,7 @@ struct ContentView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
         }
-        .glassEffect(.regular.tint(.accentColor.opacity(0.8)), in: RoundedRectangle(cornerRadius: 35))
+        .glassEffect(.regular.tint(themeManager.accentColor.opacity(0.8)), in: RoundedRectangle(cornerRadius: 35))
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
     }
@@ -393,7 +393,7 @@ struct ContentView: View {
                 Group {
                     if isSelected {
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.accentColor.opacity(0.12))
+                            .fill(themeManager.accentColor.opacity(0.12))
                     } else {
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color(.secondarySystemGroupedBackground))
@@ -403,12 +403,12 @@ struct ContentView: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(
-                        isSelected ? Color.accentColor.opacity(0.5) : Color.clear,
+                        isSelected ? themeManager.accentColor.opacity(0.5) : Color.clear,
                         lineWidth: 2
                     )
             )
             .shadow(
-                color: isSelected ? Color.accentColor.opacity(0.2) : Color.black.opacity(0.05),
+                color: isSelected ? themeManager.accentColor.opacity(0.2) : Color.black.opacity(0.05),
                 radius: isSelected ? 8 : 4,
                 y: 2
             )
@@ -1551,10 +1551,10 @@ struct SettingsView: View {
     private func settingRow(icon: String, title: String, subtitle: String, toggle: Binding<Bool>) -> some View {
         HStack {
             Image(systemName: icon)
-                .foregroundColor(.accentColor)
+                .foregroundColor(themeManager.accentColor)
                 .font(.title2)
                 .frame(width: 40, height: 40)
-                .background(Color.accentColor.opacity(0.1))
+                .background(themeManager.accentColor.opacity(0.1))
                 .cornerRadius(8)
             
             VStack(alignment: .leading, spacing: 2) {
@@ -1581,16 +1581,16 @@ struct SettingsView: View {
                 Group {
                     if isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .accentColor))
+                            .progressViewStyle(CircularProgressViewStyle(tint: themeManager.accentColor))
                             .scaleEffect(0.8)
                     } else if let icon = icon {
                         Image(systemName: icon)
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(themeManager.accentColor)
                             .font(.title2)
                     }
                 }
                 .frame(width: 40, height: 40)
-                .background(Color.accentColor.opacity(0.1))
+                .background(themeManager.accentColor.opacity(0.1))
                 .cornerRadius(8)
                 
                 VStack(alignment: .leading, spacing: 2) {

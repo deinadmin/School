@@ -14,6 +14,8 @@ struct CloudKitSyncView: View {
     @State private var syncManager = CloudKitSyncManager.shared
     @State private var showingDetailedStatus = false
     @State private var showingTroubleshootingGuide = false
+    // Debug: Access ThemeManager for dynamic accent color
+    @Environment(ThemeManager.self) private var themeManager
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -81,7 +83,7 @@ struct CloudKitSyncView: View {
                 
                 if syncManager.isSyncing {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .accentColor))
+                        .progressViewStyle(CircularProgressViewStyle(tint: themeManager.accentColor))
                         .scaleEffect(0.8)
                 }
             }
@@ -132,7 +134,7 @@ struct CloudKitSyncView: View {
     private func dataCountCard(icon: String, title: String, count: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .foregroundColor(.accentColor)
+                .foregroundColor(themeManager.accentColor)
                 .font(.caption)
             
             VStack(alignment: .leading, spacing: 1) {
@@ -178,7 +180,7 @@ struct CloudKitSyncView: View {
                 .padding()
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(syncManager.canPerformManualSync ? Color.accentColor : Color.gray)
+                        .fill(syncManager.canPerformManualSync ? themeManager.accentColor : Color.gray)
                 )
             }
             .disabled(!syncManager.canPerformManualSync)
@@ -188,10 +190,10 @@ struct CloudKitSyncView: View {
                 Button("Details anzeigen") {
                     showingDetailedStatus = true
                 }
-                .foregroundColor(.accentColor)
+                .foregroundColor(themeManager.accentColor)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
-                .background(Color.accentColor.opacity(0.1))
+                .background(themeManager.accentColor.opacity(0.1))
                 .cornerRadius(8)
                 
                 Button("Problembehandlung") {
@@ -225,7 +227,7 @@ struct CloudKitSyncView: View {
                     syncManager.clearError()
                 }
                 .font(.caption)
-                .foregroundColor(.accentColor)
+                .foregroundColor(themeManager.accentColor)
             }
             
             Text(error.localizedDescription)
@@ -234,7 +236,7 @@ struct CloudKitSyncView: View {
             
             Text("Vorschlag: \(error.suggestedAction)")
                 .font(.caption)
-                .foregroundColor(.accentColor)
+                .foregroundColor(themeManager.accentColor)
                 .italic()
         }
         .padding()
@@ -310,7 +312,7 @@ struct CloudKitSyncView: View {
                                 title: "Letzte Synchronisation",
                                 value: syncManager.lastSyncDescription,
                                 icon: "clock.arrow.circlepath",
-                                color: .accentColor
+                                color: themeManager.accentColor
                             )
                         }
                     }
@@ -446,7 +448,7 @@ struct CloudKitSyncView: View {
                         Text("\(index + 1).")
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(themeManager.accentColor)
                             .frame(width: 20, alignment: .leading)
                         
                         Text(step)
