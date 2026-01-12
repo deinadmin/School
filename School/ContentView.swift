@@ -1357,8 +1357,8 @@ struct SettingsView: View {
             .sheet(isPresented: $showingDocumentPicker) {
                 DocumentPicker { result in
                     switch result {
-                    case .success(let url):
-                        loadJSONFile(from: url)
+                    case .success(let data):
+                        processJSONFileData(data)
                     case .failure(let error):
                         print("Debug: Document picker error: \(error)")
                         // Debug: Reset import state if document picker fails or is cancelled
@@ -1828,37 +1828,26 @@ struct SettingsView: View {
         }
     }
     
-    /// Load JSON file from document picker URL
-    /// Debug: Reads file content and triggers import confirmation
-    private func loadJSONFile(from url: URL) {
+    /// Process JSON file data from document picker
+    /// Debug: Processes file content and triggers import confirmation
+    private func processJSONFileData(_ data: Data) {
         isImporting = true
-        print("Debug: Loading JSON file from: \(url)")
+        print("Debug: Processing JSON file data, size: \(data.count) bytes")
         
         // Debug: Add small delay to show loading state
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            do {
-                let data = try Data(contentsOf: url)
-                print("Debug: File loaded, size: \(data.count) bytes")
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("Debug: JSON string length: \(jsonString.count) characters")
+                print("Debug: JSON preview: \(String(jsonString.prefix(200)))...")
                 
-                if let jsonString = String(data: data, encoding: .utf8) {
-                    print("Debug: JSON string length: \(jsonString.count) characters")
-                    print("Debug: JSON preview: \(String(jsonString.prefix(200)))...")
-                    
-                    DispatchQueue.main.async {
-                        importedData = jsonString
-                        isImporting = false
-                        showingImportAlert = true
-                        print("Debug: Import confirmation alert will be shown")
-                    }
-                } else {
-                    print("Debug: Failed to convert data to UTF-8 string")
-                    DispatchQueue.main.async {
-                        isImporting = false
-                        showingImportError = true
-                    }
+                DispatchQueue.main.async {
+                    importedData = jsonString
+                    isImporting = false
+                    showingImportAlert = true
+                    print("Debug: Import confirmation alert will be shown")
                 }
-            } catch {
-                print("Debug: Error reading file: \(error)")
+            } else {
+                print("Debug: Failed to convert data to UTF-8 string")
                 DispatchQueue.main.async {
                     isImporting = false
                     showingImportError = true
@@ -1869,66 +1858,63 @@ struct SettingsView: View {
     
     /// Import JSON data and replace all current data
     /// Debug: Clears existing data and imports new data with original grading systems
+    /// NOTE: ModelContext is NOT thread-safe - all SwiftData operations MUST happen on main thread!
     private func importData(_ jsonString: String) {
         isImporting = true
         print("Debug: Starting data import...")
         
         guard let jsonData = jsonString.data(using: .utf8) else {
             print("Debug: Invalid JSON string")
-            DispatchQueue.main.async {
-                isImporting = false
-                showingImportError = true
-            }
+            isImporting = false
+            showingImportError = true
             return
         }
         
-        // Debug: Process import on background queue to avoid UI blocking
+        // Debug: Decode JSON on background queue to avoid UI blocking during parsing
         DispatchQueue.global(qos: .userInitiated).async {
+            var decodedData: ExportedData?
+            var decodingError: Error?
+            
+            // Try primary decoder
             do {
                 let decoder = JSONDecoder()
                 decoder.dateDecodingStrategy = .secondsSince1970
+                decodedData = try decoder.decode(ExportedData.self, from: jsonData)
+            } catch {
+                print("Debug: Primary decoding failed: \(error)")
                 
-                let importData = try decoder.decode(ExportedData.self, from: jsonData)
-                
-                // Debug: Always import data and restore original grading systems
-                DataImporter.importAllData(importData, to: modelContext)
-                
-                DispatchQueue.main.async {
-                    // Debug: Restore original grading systems from backup to UserDefaults
+                // Try fallback decoder with iso8601 date strategy
+                do {
+                    print("Debug: Trying fallback decoding with iso8601 date strategy...")
+                    let fallbackDecoder = JSONDecoder()
+                    fallbackDecoder.dateDecodingStrategy = .iso8601
+                    decodedData = try fallbackDecoder.decode(ExportedData.self, from: jsonData)
+                } catch {
+                    print("Debug: Fallback decoding also failed: \(error)")
+                    decodingError = error
+                }
+            }
+            
+            // Debug: ALL ModelContext operations MUST happen on main thread to avoid EXC_BAD_ACCESS
+            DispatchQueue.main.async {
+                if let importData = decodedData {
+                    // Debug: Perform the actual import on main thread (ModelContext is not thread-safe!)
+                    DataImporter.importAllData(importData, to: self.modelContext)
+                    
+                    // Debug: Restore original grading systems from backup
                     self.setGradingSystemsInSwiftData(importData.schoolYearGradingSystems)
                     
                     self.isImporting = false
                     print("Debug: Data imported successfully, original grading systems restored")
                     self.onImportComplete()
-                }
-            } catch {
-                print("Debug: Import error: \(error)")
-                
-                // Debug: Try fallback decoding strategies
-                do {
-                    print("Debug: Trying fallback decoding with iso8601 date strategy...")
-                    let fallbackDecoder = JSONDecoder()
-                    fallbackDecoder.dateDecodingStrategy = .iso8601
                     
-                    let importData = try fallbackDecoder.decode(ExportedData.self, from: jsonData)
-                    
-                    // Debug: Always import data and restore original grading systems
-                    DataImporter.importAllData(importData, to: modelContext)
-                    
-                    DispatchQueue.main.async {
-                        // Debug: Restore original grading systems from backup to UserDefaults
-                        self.setGradingSystemsInSwiftData(importData.schoolYearGradingSystems)
-                        
-                        self.isImporting = false
-                        print("Debug: Data imported successfully with fallback decoder, original grading systems restored")
-                        self.onImportComplete()
-                    }
-                } catch {
-                    print("Debug: Fallback import also failed: \(error)")
-                    DispatchQueue.main.async {
-                        isImporting = false
-                        showingImportError = true
-                    }
+                    // Debug: Dismiss settings view after successful import to prevent stale UI references
+                    // and give user clear feedback that import completed
+                    self.dismiss()
+                } else {
+                    print("Debug: Import failed with error: \(decodingError?.localizedDescription ?? "Unknown error")")
+                    self.isImporting = false
+                    self.showingImportError = true
                 }
             }
         }
@@ -2114,12 +2100,17 @@ class DataExporter {
 
 // MARK: - Data Import Manager
 
-/// Handles importing JSON data and recreating SwiftData models
 /// Debug: Clears existing data and recreates all models with proper relationships
+/// NOTE: All operations must happen on main thread (ModelContext is not thread-safe)
 class DataImporter {
     static func importAllData(_ data: ExportedData, to context: ModelContext) {
-        // Debug: Clear all existing data first (with user confirmation)
+        // Debug: Clear all existing data first - this must be done carefully to avoid
+        // "backing data was detached" errors when SwiftUI views still reference old objects
         clearAllData(from: context)
+        
+        // Debug: Process any pending changes to ensure deletions are fully committed
+        // before we insert new objects. This prevents "detached backing data" crashes.
+        context.processPendingChanges()
         
         // Debug: Import subjects and recreate relationships (grading systems are handled by importWithConversion)
         for (index, exportedSubject) in data.subjects.enumerated() {
@@ -2205,22 +2196,61 @@ class DataImporter {
         }
         
         // Debug: Save all changes
-        try? context.save()
+        do {
+            try context.save()
+            print("Debug: Successfully saved all imported data")
+        } catch {
+            print("Debug: Error saving imported data: \(error)")
+        }
     }
     
     /// Clear all existing data from the model context
-    /// Debug: Removes all subjects, grades, grade types, and final grades
+    /// Debug: Removes all grades, grade types, final grades, and subjects in correct order
+    /// to avoid cascade issues and "detached backing data" errors
     private static func clearAllData(from context: ModelContext) {
         do {
-            // Debug: Delete all subjects (cascade will handle grades and grade types)
+            // Debug: Delete related entities FIRST to avoid cascade issues with detached data
+            // Order matters: delete leaf entities before parent entities
+            
+            // 1. Delete all grades first (they reference subjects and grade types)
+            let gradeDescriptor = FetchDescriptor<Grade>()
+            let grades = try context.fetch(gradeDescriptor)
+            for grade in grades {
+                context.delete(grade)
+            }
+            print("Debug: Deleted \(grades.count) grades")
+            
+            // 2. Delete all final grades (they reference subjects)
+            let finalGradeDescriptor = FetchDescriptor<FinalGrade>()
+            let finalGrades = try context.fetch(finalGradeDescriptor)
+            for finalGrade in finalGrades {
+                context.delete(finalGrade)
+            }
+            print("Debug: Deleted \(finalGrades.count) final grades")
+            
+            // 3. Delete all grade types (they reference subjects)
+            let gradeTypeDescriptor = FetchDescriptor<GradeType>()
+            let gradeTypes = try context.fetch(gradeTypeDescriptor)
+            for gradeType in gradeTypes {
+                context.delete(gradeType)
+            }
+            print("Debug: Deleted \(gradeTypes.count) grade types")
+            
+            // 4. Save intermediate changes to commit deletions of related entities
+            try context.save()
+            context.processPendingChanges()
+            
+            // 5. Now delete all subjects (relationships should be empty now)
             let subjectDescriptor = FetchDescriptor<Subject>()
             let subjects = try context.fetch(subjectDescriptor)
             for subject in subjects {
                 context.delete(subject)
             }
+            print("Debug: Deleted \(subjects.count) subjects")
             
+            // 6. Final save to commit subject deletions
             try context.save()
-            print("Debug: Cleared all existing data")
+            print("Debug: Cleared all existing data successfully")
         } catch {
             print("Debug: Error clearing data: \(error)")
         }
@@ -2271,8 +2301,9 @@ struct ShareSheet: UIViewControllerRepresentable {
 
 /// UIDocumentPicker wrapper for importing JSON files
 /// Debug: Native Files app integration for file selection
+/// NOTE: Returns file Data (not URL) because security-scoped access must remain valid during file read
 struct DocumentPicker: UIViewControllerRepresentable {
-    let onDocumentPicked: (Result<URL, Error>) -> Void
+    let onDocumentPicked: (Result<Data, Error>) -> Void
     
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.json])
@@ -2303,8 +2334,19 @@ struct DocumentPicker: UIViewControllerRepresentable {
                 return
             }
             
+            // Debug: Read file data IMMEDIATELY while we have security-scoped access
+            // The defer block will revoke access when this function returns, so we must
+            // read the data synchronously here - NOT in an async callback later!
             defer { url.stopAccessingSecurityScopedResource() }
-            parent.onDocumentPicked(.success(url))
+            
+            do {
+                let data = try Data(contentsOf: url)
+                print("Debug: Successfully read \(data.count) bytes from \(url.lastPathComponent)")
+                parent.onDocumentPicked(.success(data))
+            } catch {
+                print("Debug: Failed to read file data: \(error)")
+                parent.onDocumentPicked(.failure(DocumentPickerError.invalidFile))
+            }
         }
         
         func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
