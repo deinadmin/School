@@ -718,34 +718,6 @@ struct ContentView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingAddSubject) {
-                AddSubjectView()
-            }
-            .sheet(isPresented: $showingQuickGradeAdd) {
-                QuickGradeAddView(
-                    selectedSchoolYear: selectedSchoolYear,
-                    selectedSemester: selectedSemester
-                )
-            }
-            .sheet(isPresented: $showingSettings) {
-                SettingsView(onImportComplete: self.refreshCurrentSelection)
-            }
-            .sheet(item: $subjectToEdit) { subject in
-                EditSubjectView(subject: subject)
-            }
-            .alert("Fach löschen?", isPresented: .constant(subjectToDelete != nil), presenting: subjectToDelete) { subject in
-                Button("Löschen", role: .destructive) {
-                    let subjectName = subject.name
-                    DataManager.deleteSubject(subject, from: modelContext)
-                    subjectToDelete = nil
-                    ToastManager.shared.success("\"\(subjectName)\" gelöscht", icon: "trash.fill")
-                }
-                Button("Abbrechen", role: .cancel) {
-                    subjectToDelete = nil
-                }
-            } message: { subject in
-                Text("Das Fach \"\(subject.name)\" und alle zugehörigen Noten werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.")
-            }
             .onAppear {
                 loadSelectedPeriod()
                 // Debug: Restore grid view preference from UserDefaults

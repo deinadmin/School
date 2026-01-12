@@ -12,6 +12,8 @@ struct CardBasedSchoolPicker: View {
     
     // Debug: Need ModelContext for grading system validation
     @Environment(\.modelContext) private var modelContext
+    // Debug: Access ThemeManager for dynamic accent color
+    @Environment(ThemeManager.self) private var themeManager
     
     var body: some View {
         VStack(spacing: 0) {
@@ -26,7 +28,7 @@ struct CardBasedSchoolPicker: View {
                     ZStack {
                         Circle()
                             .fill(LinearGradient(
-                                colors: [Color.accentColor.opacity(0.2), Color.accentColor.opacity(0.2)],
+                                colors: [themeManager.accentColor.opacity(0.2), themeManager.accentColor.opacity(0.2)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ))
@@ -34,7 +36,7 @@ struct CardBasedSchoolPicker: View {
                         
                         Image(systemName: "calendar.badge.clock")
                             .font(.title2)
-                            .foregroundColor(.accentColor)
+                            .foregroundColor(themeManager.accentColor)
                     }
                     
                     // Text
@@ -79,6 +81,7 @@ struct CardBasedSchoolPicker: View {
                                         YearChip(
                                             year: year,
                                             isSelected: selectedSchoolYear.startYear == year.startYear,
+                                            accentColor: themeManager.accentColor,
                                             action: { 
                                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                                     selectedSchoolYear = year
@@ -117,6 +120,7 @@ struct CardBasedSchoolPicker: View {
                                 GradingSystemCard(
                                     system: system,
                                     isSelected: selectedSchoolYear.gradingSystem == system,
+                                    accentColor: themeManager.accentColor,
                                     action: {
                                         changeGradingSystem(to: system)
                                     }
@@ -140,6 +144,7 @@ struct CardBasedSchoolPicker: View {
                                 SemesterCard(
                                     semester: semester,
                                     isSelected: selectedSemester == semester,
+                                    accentColor: themeManager.accentColor,
                                     action: {
                                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                             selectedSemester = semester
@@ -238,6 +243,7 @@ struct CardBasedSchoolPicker: View {
 struct YearChip: View {
     let year: SchoolYear
     let isSelected: Bool
+    let accentColor: Color
     let action: () -> Void
     
     var body: some View {
@@ -252,7 +258,7 @@ struct YearChip: View {
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(isSelected ? Color.accentColor : Color(.systemGray6))
+                    .fill(isSelected ? accentColor : Color(.systemGray6))
             )
             .overlay(
                 Capsule()
@@ -266,6 +272,7 @@ struct YearChip: View {
 struct GradingSystemCard: View {
     let system: GradingSystem
     let isSelected: Bool
+    let accentColor: Color
     let action: () -> Void
     
     var body: some View {
@@ -273,7 +280,7 @@ struct GradingSystemCard: View {
             VStack(spacing: 8) {
                 Image(systemName: system == .traditional ? "1.circle.fill" : "15.circle.fill")
                     .font(.system(size: 24, weight: .medium))
-                    .foregroundColor(isSelected ? .white : .accentColor)
+                    .foregroundColor(isSelected ? .white : accentColor)
                 
                 VStack(spacing: 2) {
                     Text(system.displayName)
@@ -291,7 +298,7 @@ struct GradingSystemCard: View {
                 RoundedRectangle(cornerRadius: 20)
                     .fill(isSelected ?
                         LinearGradient(
-                            colors: [Color.accentColor, Color.accentColor.opacity(0.8)],
+                            colors: [accentColor, accentColor.opacity(0.8)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ) :
@@ -315,6 +322,7 @@ struct GradingSystemCard: View {
 struct SemesterCard: View {
     let semester: Semester
     let isSelected: Bool
+    let accentColor: Color
     let action: () -> Void
     
     var body: some View {
@@ -322,7 +330,7 @@ struct SemesterCard: View {
             VStack(spacing: 8) {
                 Image(systemName: semester == .first ? "1.circle.fill" : "2.circle.fill")
                     .font(.system(size: 24, weight: .medium))
-                    .foregroundColor(isSelected ? .white : .accentColor)
+                    .foregroundColor(isSelected ? .white : accentColor)
                 
                 Text(semester.displayName)
                     .font(.system(size: 14, weight: .medium))
@@ -334,7 +342,7 @@ struct SemesterCard: View {
                 RoundedRectangle(cornerRadius: 20)
                     .fill(isSelected ?
                         LinearGradient(
-                            colors: [Color.accentColor, Color.accentColor.opacity(0.8)],
+                            colors: [accentColor, accentColor.opacity(0.8)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ) :
