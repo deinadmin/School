@@ -14,6 +14,10 @@ struct SchoolApp: App {
     // Debug: Global theme manager for dynamic accent colors
     @State private var themeManager = ThemeManager.shared
     
+    // Debug: Track onboarding completion status
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage("shouldShowGradeButtonHint") private var shouldShowGradeButtonHint = false
+    
   // Debug: Create ModelContainer once as stored property to prevent duplicate CloudKit registrations
   private let container: ModelContainer
   
@@ -74,10 +78,20 @@ struct SchoolApp: App {
   
   var body: some Scene {
     WindowGroup {
-      ContentView()
-        .withToastOverlay() // Debug: Enable toast notifications throughout the entire app
+      if hasCompletedOnboarding {
+        ContentView()
+          .withToastOverlay() // Debug: Enable toast notifications throughout the entire app
+          .environment(themeManager)
+          .tint(themeManager.accentColor)
+      } else {
+        OnboardingView(onComplete: {
+          hasCompletedOnboarding = true
+          shouldShowGradeButtonHint = true
+          debugLog("✅ Onboarding completed")
+        })
         .environment(themeManager)
         .tint(themeManager.accentColor)
+      }
     }
     .modelContainer(container)
   }

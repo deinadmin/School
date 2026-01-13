@@ -29,6 +29,8 @@ struct ContentView: View {
     @AppStorage("showMotivationalCharacter") private var showMotivationalCharacter = false
     @AppStorage("roundPointAverages") private var roundPointAverages = true
     @AppStorage("storedIsGridView") private var storedIsGridView = false // Debug: Persist view preference to UserDefaults
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = true // Debug: Control onboarding visibility
+    @AppStorage("shouldShowGradeButtonHint") private var shouldShowGradeButtonHint = false // Debug: Show hint for grade button after onboarding
     // Debug: Query all subjects (subjects are independent of school year/semester)
     @Query(sort: \Subject.name) private var allSubjects: [Subject]
     
@@ -671,6 +673,7 @@ struct ContentView: View {
                             
                             if !sortedSubjects.isEmpty {
                                 Button(action: {
+                                    shouldShowGradeButtonHint = false
                                     showingQuickGradeAdd = true
                                 }, label: {
                                     HStack {
@@ -687,6 +690,23 @@ struct ContentView: View {
                                     //.glassEffect(.regular.tint(.accentColor.opacity(0.9)), in: RoundedRectangle(cornerRadius: 16))
                                 })
                                 .buttonStyle(.glassProminent)
+                                .popover(isPresented: $shouldShowGradeButtonHint, arrowEdge: .bottom) {
+                                    VStack(spacing: 12) {
+                                        Image(systemName: "hand.tap.fill")
+                                            .font(.title)
+                                            .foregroundColor(themeManager.accentColor)
+                                        
+                                        Text("Neue Note hinzufügen")
+                                            .font(.headline)
+                                        
+                                        Text("Tippe hier, um deine erste Note einzutragen.")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                            .multilineTextAlignment(.center)
+                                    }
+                                    .padding()
+                                    .presentationCompactAdaptation(.popover)
+                                }
                             }
                         }
                     }
@@ -696,13 +716,27 @@ struct ContentView: View {
             }
             .navigationTitle("School")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {     
-                    Button(action: {
-                        showingSettings = true
-                    }) {
-                        Image(systemName: "gearshape.fill")
-                            .foregroundColor(.primary)
-                            .bold()
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    HStack(spacing: 16) {
+                        // Help button - only visible when no subjects exist
+                        if allSubjects.isEmpty {
+                            Button(action: {
+                                hasCompletedOnboarding = false
+                            }) {
+                                Image(systemName: "questionmark.circle.fill")
+                                    .foregroundColor(.primary)
+                                    .bold()
+                            }
+                        }
+                        
+                        // Settings button
+                        Button(action: {
+                            showingSettings = true
+                        }) {
+                            Image(systemName: "gearshape.fill")
+                                .foregroundColor(.primary)
+                                .bold()
+                        }
                     }
                 }
             }
