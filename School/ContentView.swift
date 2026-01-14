@@ -144,6 +144,10 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             updateWidget()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .gradesDidChange)) { _ in
+            refreshStatistics() // Performance: Refresh when grades are added/deleted
+            updateWidget()
+        }
         .id("\(selectedSchoolYearKey)-\(selectedSemesterKey)") // Debug: Force refresh on year/semester change
         // Debug: Update global accent color when average or grading system changes
         .onChange(of: overallAverage, initial: true) { _, newAverage in

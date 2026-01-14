@@ -9,6 +9,12 @@ import Foundation
 import SwiftData
 import WidgetKit
 
+// MARK: - Notification Names
+extension Notification.Name {
+    /// Posted when grades are added, deleted, or modified
+    static let gradesDidChange = Notification.Name("gradesDidChange")
+}
+
 // MARK: - Debug Logging Utility
 /// Performance: This function compiles to nothing in release builds
 /// Usage: Replace print("Debug: ...") with debugLog("...")
@@ -347,6 +353,9 @@ class DataManager {
         do {
             try context.save()
             debugLog(" Grade \(value) created for subject '\(subject.name)' with type '\(gradeType.name)' in \(schoolYear.displayName) \(semester.displayName)")
+            
+            // Notify observers that grades changed
+            NotificationCenter.default.post(name: .gradesDidChange, object: nil)
         } catch {
             debugLog(" Error saving grade: \(error)")
         }
@@ -362,6 +371,9 @@ class DataManager {
             
             // Debug: Update widget after deleting grade
             updateWidgetAfterGradeChange(from: context)
+            
+            // Notify observers that grades changed
+            NotificationCenter.default.post(name: .gradesDidChange, object: nil)
         } catch {
             debugLog(" Error deleting grade: \(error)")
         }
@@ -472,6 +484,11 @@ class DataManager {
         do {
             try context.save()
             debugLog(" Deleted \(gradesToDelete.count) grades of type '\(gradeType.name)' for subject '\(subject.name)'")
+            
+            // Notify observers that grades changed
+            if !gradesToDelete.isEmpty {
+                NotificationCenter.default.post(name: .gradesDidChange, object: nil)
+            }
         } catch {
             debugLog(" Error deleting grades of type: \(error)")
         }
